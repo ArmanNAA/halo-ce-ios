@@ -68,6 +68,7 @@ def main():
         ('build/third_party/SDL3/LICENSE.txt', 'SDL.txt'),
         ('build/third_party/musl-1.2.5/COPYRIGHT', 'musl.txt'),
         ('port/third_party/kcp/LICENSE', 'kcp.txt'),
+        ('port/third_party/extract-xiso/LICENSE.TXT', 'extract-xiso.txt'),
         ('port/third_party/tomlc17/LICENSE', 'tomlc17.txt'),
     ):
         shutil.copyfile(ROOT/source, notices/name)

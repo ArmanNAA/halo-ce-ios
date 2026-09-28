@@ -47,6 +47,7 @@ int main(int argc,char **argv) {
         log_file=fopen("ios-runtime.log","w");setvbuf(stderr,NULL,_IONBF,0);
         host_logf(HOST_LOG_INFO,"Halo iOS native guest starting");
         UIApplication.sharedApplication.idleTimerDisabled=YES;
+        host_ios_prepare_assets(data_root);
         if(host_load_image(NULL,0))host_fatal("Could not map the signed game image. See ios-runtime.log in Files.");
         host_install_signal_handlers();
         SDL_SetHint(SDL_HINT_ORIENTATIONS,"LandscapeLeft LandscapeRight");

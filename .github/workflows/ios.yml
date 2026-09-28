@@ -29,7 +29,7 @@ jobs:
           xcodebuild -version
           /opt/homebrew/opt/llvm/bin/clang --version
           /opt/homebrew/opt/lld/bin/ld.lld --version
-      - name: ABI, memory, and SDL audio regressions
+      - name: ABI, memory, audio, and XISO regressions
         run: python3 tools/ios_test.py
       - name: Build unsigned device IPA
         run: python3 tools/ios_build.py --unsigned --jobs 3 --ipa dist/Halo-CE-iOS-unsigned.ipa

@@ -31,3 +31,6 @@ run('xcrun', 'clang', '-O2', '-DHALO_IOS=1', '-Iport/ios/host', '-Iport/ios/host
     '-Iport/runtime/include', 'port/ios/tests/audio_probe.c', '-Wl,-dead_strip',
     *sdl_flags, '-o', BUILD/'audio-probe')
 run(BUILD/'audio-probe')
+
+# Parse untrusted XISO metadata and exercise extraction/cancellation under sanitizers.
+run('python3', 'tools/ios_xiso_test.py')

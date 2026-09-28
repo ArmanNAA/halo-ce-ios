@@ -46,6 +46,26 @@ The regression suite passes locally and covers:
    buffers and growth beyond 64 KB. The original cross-thread SDL stream
    submission deadlocked this test; the iOS handoff submits on the callback thread.
 
+4. Fifteen XISO importer tests under AddressSanitizer/UndefinedBehaviorSanitizer:
+   exact byte copies, PAL/NTSC headers, whole-disc offsets, invalid/truncated
+   images, missing maps, unsafe/duplicate names, directory cycles, mixed builds,
+   cancellation/retry, existing destination preservation, and seeded corruption.
+
+## In-app XISO import (build 4)
+
+The iPhone simulator imported a real NTSC-US XISO directly from the app's
+Documents folder, then reached the Halo menu with active audio output. All 24
+extracted maps matched the original maps byte for byte (SHA-256), the save
+sentinel remained intact, and temporary import directories were removed.
+The native Choose Halo XISO button opened the system Files picker. An invalid
+image displayed a readable error and restored the choose button. The iOS
+Xcode target explicitly enables ARC, and the importer rejects compilation
+without it so asynchronous error strings remain valid.
+
+The importer itself has not yet been exercised on a physical device or with
+an iCloud-hosted image. Parser cancellation is covered automatically; UI
+cancellation and cloud-provider download behavior still need device testing.
+
 CI runs these probes and compiles device and simulator apps without game data.
 It does **not** play the game or validate a personal provisioning profile.
 Its packaged IPA is unsigned and must be signed before installation.

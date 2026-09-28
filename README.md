@@ -8,7 +8,7 @@ An experimental native iOS/iPadOS port of Halo: Combat Evolved, built on
 [halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal) and
 [bnunu's native ports](https://github.com/bnunu/halo-1). Runs compiled ARM64
 code with OpenGL ES 3, SDL audio, and on-screen controls. No jailbreak or JIT
-is required. **You supply your own original Xbox game maps.**
+is required. **You supply your own original Xbox Halo XISO.**
 
 **Status:** gameplay and audible sound confirmed on an iPhone 17 Pro Max
 (A19 Pro). iPad has been tested in the simulator only. This is an early port;
@@ -28,12 +28,20 @@ older devices and OS versions have not been validated.
 2. Sign and install it using your own Apple account and provisioning profile.
    An unsigned IPA cannot be installed directly. This repository does not
    provide a shared certificate or App Store/TestFlight distribution.
-3. Copy your original Xbox maps into the app's `Documents/maps` folder
-   **before launching the game**. See the [installation guide](port/ios/README.md#install-and-add-game-data).
+3. Open **Halo: CE**, tap **Choose Halo XISO**, and select your own Xbox disc
+   image in Files. The app validates it, imports the maps, and starts Halo
+   automatically. See the [installation guide](port/ios/README.md#install-and-add-game-data).
 
 For the documented Xcode signing route, build from source below. Keep the
 same bundle identifier for future updates so your app data remains associated
 with the app. Back up `Documents/save` before uninstalling.
+
+![Choose a Halo XISO directly in the installed app](docs/ios/import.jpg)
+
+You can also copy one `.iso` or `.xiso` into Halo: CE with Finder file sharing
+or Files, then open the app. It detects the image and imports it on first run.
+The source image is never changed; after a successful import you can remove
+that extra copy to reclaim space. Later launches go straight to the game.
 
 ## Build from source
 
@@ -70,7 +78,8 @@ The iOS cache validator accepts original Xbox v5 maps with these build IDs:
 | NTSC-US | `01.10.12.2276` | iPhone gameplay and audio confirmed |
 | PAL | `01.01.14.2342` | Original upstream baseline; not played on iOS yet |
 
-Inspect or extract maps from your own XISO:
+The app imports a XISO directly; no computer-side extraction is required.
+For optional inspection or manual extraction on a Mac:
 
 ```sh
 python3 tools/ios_extract_assets.py '/path/to/Halo.xiso.iso'
@@ -117,6 +126,9 @@ original history. The [upstream README](README.upstream.md) is preserved as a
 historical reference; use the upstream repositories for Android builds.
 Desktop CI is manual; this fork automatically builds iOS. See [third-party notices](port/ios/THIRD_PARTY.md)
 and the inherited [CC0 license](LICENSE.md).
+
+The XISO importer follows extract-xiso format handling. This product includes
+software developed by in <in@fishtank.com>.
 
 This is an unofficial community project, unaffiliated with Microsoft, Bungie,
 or Halo Studios. Halo, Master Chief, artwork, and game assets belong to their

@@ -7,7 +7,9 @@ The inherited project license is [CC0 1.0](../../LICENSE.md).
 
 The app includes SDL 3.4.16 (zlib license), portions of musl 1.2.5 (see its
 COPYRIGHT for the MIT license and component notices), KCP (MIT), and tomlc17
-(MIT). Their complete notices are copied into the built app's `Licenses`
+(MIT). The native XISO parser adapts upstream extraction code following
+extract-xiso (modified BSD; see `port/third_party/extract-xiso/LICENSE.TXT`).
+This product includes software developed by in <in@fishtank.com>. Their complete notices are copied into the built app's `Licenses`
 directory. Khronos headers retain the notices supplied by their registries.
 Other vendored components retain their original notices in the source tree.
 

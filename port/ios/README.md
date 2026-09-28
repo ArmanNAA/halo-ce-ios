@@ -67,44 +67,68 @@ The cache validator accepts these exact Xbox v5 cache builds on iOS:
 - PAL: `01.01.14.2342`
 - NTSC-US: `01.10.12.2276` (experimental compatibility)
 
-Extract the maps from your own XISO without modifying headers:
+### Import on the device
 
-```sh
-python3 tools/ios_extract_assets.py '/path/to/Halo.xiso.iso' --output assets
-```
+1. Sign/install the IPA with your own account, then open **Halo: CE**.
+2. Tap **Choose Halo XISO** and select your `.iso` or `.xiso` in Files (On My
+   iPhone/iPad, iCloud Drive, or another Files provider). Compressed ZIP/7z
+   archives and PC/MCC disc images are not supported.
+3. The app validates the Xbox filesystem, cache version/build, and complete
+   campaign map set before copying. A progress bar shows extraction; Cancel
+   safely stops it. Once finished, the game starts automatically.
 
-The destination files must not already exist. Extraction writes
-`assets/asset-manifest.json` with original build IDs, sizes and SHA-256 hashes.
-It does not patch maps or convert other Halo releases.
+The image is opened through the system document picker with coordinated,
+security-scoped access. A cloud image may need to download before extraction.
+Leave enough local storage for its maps as well as any local XISO copy.
+Nothing is fetched from a game-download service, and the source image is never
+modified or deleted. After import, subsequent launches use the extracted maps.
 
-For source builds, list devices with `xcrun devicectl list devices`. Enable
-Developer Mode when iOS requests it, pair/trust the Mac, and keep the device
-unlocked during installation and copying. Replace `DEVICE_UDID` and the
-example bundle identifier below with your device and the ID used for signing.
+You can also copy **one** `.iso` or `.xiso` directly into Halo: CE's Documents
+folder using Finder's Files tab or Files > On My iPhone/iPad > Halo: CE, then
+launch the app. It detects and imports that image when game data is missing.
+If several images are present, choose one with the picker. After a successful
+import, deleting the extra XISO copy from the app folder can reclaim storage.
 
-For downloaded IPAs, first sign and install through your preferred signing
-tool with your own Apple account. The unsigned IPA cannot be opened directly
-on iOS. Its signing/refresh requirements depend on your account and tool;
-third-party signing tools have not been validated as part of this port.
+Imports run in a private staging directory. Invalid or cancelled imports do
+not replace existing maps. Interrupted imports are cleaned up on next launch;
+existing maps displaced during the final move are restored if needed. Saves
+and profiles stay in `Documents/save` throughout.
 
-Install the signed source build and copy maps **before first launch**:
+### Install a source build
+
+List devices with `xcrun devicectl list devices`. Enable Developer Mode when
+iOS requests it, pair/trust the Mac, and keep the device unlocked during
+installation. Replace `DEVICE_UDID` and the example bundle identifier with
+your device and the ID used for signing.
 
 ```sh
 xcrun devicectl device install app --device DEVICE_UDID \
   build/ios/app-device/Release-iphoneos/HaloCE.app
+xcrun devicectl device process launch --device DEVICE_UDID com.yourname.haloce
+```
+
+Downloaded unsigned IPAs must first be signed through your preferred signing
+tool with your own Apple account/profile. Third-party signing tools have not
+been validated as part of this port. Development signatures expire with their
+provisioning profiles.
+
+### Optional manual extraction
+
+The Mac helper remains available for inspecting your XISO or preparing maps
+manually. It preserves original bytes and records build IDs, sizes and SHA-256
+hashes. Existing output files are never replaced.
+
+```sh
+python3 tools/ios_extract_assets.py '/path/to/Halo.xiso.iso'
+python3 tools/ios_extract_assets.py '/path/to/Halo.xiso.iso' --output assets
 xcrun devicectl device copy to --device DEVICE_UDID \
   --domain-type appDataContainer --domain-identifier com.yourname.haloce \
   --source assets/maps --destination Documents/maps
-xcrun devicectl device process launch --device DEVICE_UDID \
-  com.yourname.haloce
 ```
 
-Alternatively, use Finder's Files tab to transfer a folder named `maps` to
-Halo: CE, or Files > On My iPhone/iPad > Halo: CE once its container is visible.
-The app exposes its Documents folder in Files/Finder. Keep `maps` directly
-inside Documents. Saved games and profiles go in `Documents/save`;
-`config.toml`, `debug.txt` and `ios-runtime.log` are also available there.
-A development signature has the expiration date of its provisioning profile.
+Keep `maps` directly inside Documents. `config.toml`, `debug.txt`, and
+`ios-runtime.log` are available there for diagnostics. Back up `Documents/save`
+before uninstalling or changing bundle IDs.
 
 ## Controls
 
@@ -165,6 +189,10 @@ texture page tracking, fresh zeroed mappings, and the map inflater's writable
 4 KB tail beside a read-only buffer.
 The SDL regression checks 100 callbacks and 134,144 exact PCM samples,
 including reused guest stack buffers and a request larger than 64 KB.
+The native XISO importer is tested under AddressSanitizer and UBSan with
+synthetic disc images: exact byte preservation, supported builds, invalid
+headers, missing maps, truncated extents, cycles, unsafe names, duplicate
+files, cancellation/retry, existing files, and malformed directory mutations.
 
 These tests do not replace a device campaign test. See [the validation record](VALIDATION.md)
 for observed device/simulator behavior and remaining limitations.
@@ -182,7 +210,9 @@ xcrun simctl launch booted org.haloce.ios
 ```
 
 Use an explicit simulator ID instead of `booted` when more than one is running.
-The copy command assumes `Documents/maps` does not yet exist; avoid nesting a
+To exercise the in-app import instead, copy an XISO into the simulator app's
+Documents folder and launch without a maps folder.
+The manual copy command assumes `Documents/maps` does not yet exist; avoid nesting a
 second `maps` directory. Simulator graphics are slow; validate performance on
 a physical device.
 

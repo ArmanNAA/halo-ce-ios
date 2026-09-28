@@ -10,6 +10,7 @@ uint32_t host_ios_default_framebuffer(void);
 struct SDL_Window;
 struct SDL_Gamepad;
 void host_ios_touch_initialize(void);
+void host_ios_prepare_assets(const char *documents);
 void host_ios_touch_attach(struct SDL_Window *window);
 void host_ios_touch_reset(void);
 int host_ios_gamepads(uint32_t *out, int capacity);
