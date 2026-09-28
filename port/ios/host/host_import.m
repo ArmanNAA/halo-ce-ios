@@ -3,12 +3,13 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #include "ios_host.h"
 #include "xiso.h"
+#import "host_orientation.h"
 
 #if !__has_feature(objc_arc)
 #error The asynchronous importer requires Objective-C ARC.
 #endif
 
-@interface HaloImportController : UIViewController <UIDocumentPickerDelegate>
+@interface HaloImportController : HaloLandscapeController <UIDocumentPickerDelegate>
 @property(nonatomic, copy) NSString *documents;
 @property(nonatomic, strong) UILabel *statusLabel;
 @property(nonatomic, strong) UIButton *chooseButton;
@@ -94,7 +95,6 @@ static int import_progress(void *context, const char *file, uint64_t done, uint6
         [stack.bottomAnchor constraintLessThanOrEqualToAnchor:content.bottomAnchor constant:-24],
         [stack.widthAnchor constraintLessThanOrEqualToConstant:520],width]];
 }
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations {return UIInterfaceOrientationMaskLandscape;}
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     if (self.pendingImage && !self.importing) {NSURL *url=self.pendingImage;self.pendingImage=nil;[self importImage:url];}
@@ -103,7 +103,7 @@ static int import_progress(void *context, const char *file, uint64_t done, uint6
     if (self.importing) return;
     /* Some Files providers classify .xiso as generic data. Validate the file's
        contents ourselves, allowing both that type and normal ISO disk images. */
-    UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:NO];
+    UIDocumentPickerViewController *picker=[[HaloLandscapeDocumentPicker alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:NO];
     picker.delegate=self;picker.allowsMultipleSelection=NO;
     [self presentViewController:picker animated:YES completion:nil];
 }

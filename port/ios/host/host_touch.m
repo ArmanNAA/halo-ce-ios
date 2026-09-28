@@ -3,6 +3,7 @@
 #import <UIKit/UIKit.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
+#import "host_orientation.h"
 #include <math.h>
 
 static SDL_Joystick *touch_joystick;
@@ -209,12 +210,7 @@ void host_ios_touch_attach(SDL_Window *window) {
             candidate.hidden=YES;
     }
     [native makeKeyAndVisible];
-    if(@available(iOS 16.0,*)) {
-        UIWindowSceneGeometryPreferencesIOS *geometry=[[UIWindowSceneGeometryPreferencesIOS alloc]initWithInterfaceOrientations:UIInterfaceOrientationMaskLandscape];
-        [native.windowScene requestGeometryUpdateWithPreferences:geometry errorHandler:^(NSError *error){
-            host_logf(HOST_LOG_WARN,"landscape request: %s",error.localizedDescription.UTF8String);
-        }];
-    }
+    host_ios_require_landscape(native);
     UIView *root=native.rootViewController.view;
     HaloControls *controls=[[HaloControls alloc]initWithFrame:root.bounds];
     [root addSubview:controls];

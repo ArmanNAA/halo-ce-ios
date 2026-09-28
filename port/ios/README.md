@@ -145,8 +145,11 @@ The first hardware controller shares player one with the on-screen controls.
 Developer console messages, frame counters, profiling text and the menu's build label are omitted
 from the game picture. Diagnostic log files remain available in Documents.
 
-Landscape is requested on both device families. An iPad held in portrait may
-letterbox the landscape app; rotate the device for a larger picture.
+The app supports landscape only on iPhone and iPad, including XISO import and
+the Files picker. On iPadOS 26 and later it also requests the interface
+orientation lock for the full-screen scene; portrait is excluded from the
+app's orientation masks. iPadOS controls windowed multitasking and may
+letterbox the landscape app when a full-screen orientation lock is unavailable.
 Internet invite hosting and clipboard joining default to off on iOS. Local/network multiplayer is
 not yet validated. Bink intro videos remain unsupported by the upstream port.
 
