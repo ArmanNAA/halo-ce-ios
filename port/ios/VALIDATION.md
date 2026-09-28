@@ -8,7 +8,7 @@ are visible in [GitHub Actions](https://github.com/NicholasDominici/halo-ce-ios/
 
 | Surface | Result |
 | --- | --- |
-| iPhone 17 Pro Max, A19 Pro | Installed and launched; player confirmed gameplay and audible sound |
+| iPhone 17 Pro Max, A19 Pro | Player confirmed gameplay and audible sound on the earlier runtime; build 6 installed and displayed the profile menu at native 2868 × 1320 |
 | Original NTSC-US Xbox maps, `01.10.12.2276` | Menu and first campaign map (`a10`) loaded; source maps unmodified |
 | ARM64 iPhone simulator, iOS 27 | Menu, landscape layout, touch controls, icon, and removal of debug overlays checked |
 | ARM64 iPad Pro 13-inch (M5) simulator, iOS 26 | Menu and `a10` opening scene rendered; software rendering slow |
@@ -18,8 +18,8 @@ are visible in [GitHub Actions](https://github.com/NicholasDominici/halo-ce-ios/
 
 The final name/icon/overlay update was installed on the phone and visually
 checked in the simulator. Physical gameplay and sound were confirmed on the
-preceding runtime build. Native-resolution build 6 has not been installed or
-played on the iPhone. A deployment target does not establish older-device coverage.
+preceding runtime build. Build 6 menu rendering was checked on both physical
+devices. A deployment target does not establish older-device coverage.
 
 ## Local toolchain
 
@@ -86,9 +86,11 @@ all controls visible. SHA-256 hashes of all three persistent files under
 `Documents/save/u` matched before and after the update. The original app bundle
 identifier was retained, and previously imported maps remained available.
 
-The native render-size calculation applies to both device families, but this
-build's physical evidence is limited to the iPad menu and orientation check.
-Native-resolution campaign performance and long sessions have not been measured.
+Build 6 was also installed and launched on the iPhone 17 Pro Max. The console
+reported `iOS render target: 2868x1320 (logical 1042x480)`, and a device screenshot
+showed the landscape profile menu and controls. All three persistent iPhone save
+files matched their pre-update SHA-256 hashes. Native-resolution campaign
+performance and long sessions have not been measured on either device.
 
 An iPadOS 27 beta simulator (24A5355p) cold-started with a portrait canvas that
 cropped landscape content despite reporting a landscape scene. This did not
