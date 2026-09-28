@@ -3,7 +3,7 @@
 (.github/workflows/build.yml), and collects what it built into dist/:
 
     python tools/ci_build.py linux debug
-    python tools/ci_build.py android release
+    python tools/ci_build.py windows release
 
 Builds are portable (any x86-64 processor), so they run on other
 computers. Debug builds skip link-time and profile-guided optimisation,
@@ -26,11 +26,6 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS = {
     "linux": ["build/linux/halo"],
     "windows": ["build/windows/halo.exe", "build/windows/SDL3.dll"],
-    "android": [],  # the APK, below
-}
-APKS = {
-    "debug": "port/android/app/build/outputs/apk/debug/app-debug.apk",
-    "release": "port/android/app/build/outputs/apk/release/app-release.apk",
 }
 
 
@@ -55,16 +50,8 @@ def main() -> int:
         configure += ["--compiler-launcher", launcher]
     run(configure)
 
-    if args.platform == "android":
-        # the native part, then the app around it (Gradle's variant of the
-        # same name: release is signed with the debug key, not debuggable)
-        run(["ninja", "android"])
-        gradlew = "gradlew.bat" if os.name == "nt" else "./gradlew"
-        run([gradlew, "--console=plain", "-q", f"assemble{args.config.capitalize()}"], cwd=ROOT / "port/android")
-        outputs = [APKS[args.config]]
-    else:
-        run(["ninja", args.platform])
-        outputs = OUTPUTS[args.platform]
+    run(["ninja", args.platform])
+    outputs = OUTPUTS[args.platform]
 
     dist = ROOT / "dist" / f"halo-{args.platform}-{args.config}"
     if dist.exists():

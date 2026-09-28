@@ -1713,7 +1713,7 @@ static SOCKET create_socket(
 		}
 
 #if defined(HALO_LINUX) && !defined(HALO_WINDOWS)
-		/* Linux (and Android) grow a stream socket's buffers as far as the
+		/* Linux (and iOS) grow a stream socket's buffers as far as the
 		connection needs, to several megabytes; setting a size would fix them,
 		at no more than the system's limit (about 416 KB by default) */
 		if (socket_type != SOCK_STREAM)

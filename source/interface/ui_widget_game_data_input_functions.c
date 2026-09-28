@@ -2030,6 +2030,9 @@ void set_textbox_to_build_number(
 	   the function is unattested. January corroborates: .bss +0x28, referenced only here. */
 	static wchar_t build_number_string[64];
 
+#ifndef HALO_IOS
+	/* The iOS menu leaves this developer build label blank. Save and map
+	   version checks still use their original build numbers. */
 	if (!build_number_string[0])
 	{
 		ascii_to_wide(
@@ -2037,6 +2040,7 @@ void set_textbox_to_build_number(
 			build_number_string,
 			sizeof(build_number_string));
 	}
+#endif
 
 	if (!widget->parameters.text_box.text)
 	{

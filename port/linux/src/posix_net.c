@@ -17,7 +17,9 @@ with the host ABI.
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#ifndef HALO_IOS
 #include <sys/random.h>
+#endif
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -441,7 +443,7 @@ posix_ulong posix_resolve_ipv4(const char *host)
 
 int posix_command_line_argument(int index, char *buffer, posix_ulong size)
 {
-#ifdef __ANDROID__
+#if defined(HALO_IOS)
 	(void)index;
 	(void)buffer;
 	(void)size;
@@ -476,7 +478,7 @@ posix_ulong posix_process_id(void)
 	return (posix_ulong)getpid();
 }
 
-#ifndef __ANDROID__
+#if !defined(HALO_IOS)
 /* runs a program with its arguments and waits for it; its exit status, or -1 */
 static int run_program(char *const arguments[])
 {
@@ -494,7 +496,7 @@ static int run_program(char *const arguments[])
 
 int posix_register_url_scheme(const char *scheme, const char *description)
 {
-#ifdef __ANDROID__
+#if defined(HALO_IOS)
 	(void)scheme;
 	(void)description;
 	return 0;
@@ -558,7 +560,7 @@ int posix_register_url_scheme(const char *scheme, const char *description)
 
 int posix_discord_connect(void)
 {
-#ifdef __ANDROID__
+#if defined(HALO_IOS)
 	return -1;
 #else
 	/* where Discord (and its Flatpak and Snap packages) put discord-ipc-N */

@@ -3618,10 +3618,10 @@ void ai_scripting_vehicle_enterable_distance(
 void ai_scripting_follow_distance(
 	long ai_reference,
 	real distance);
-#ifdef HALO_ANDROID
+#ifdef HALO_ILP32
 /* the first argument is really a real (the red component, whose bits the
 declarations below pass as a long); AArch64 passes reals in other
-registers than longs, so the Android build uses the true signature */
+registers than longs, so the iOS build uses the true signature */
 void player_effect_screen_fade_in(
 	real red,
 	real green,
@@ -14210,7 +14210,7 @@ static void player_effect_screen_fade_in_evaluate(
 		double value1 = arguments->value1;
 		double value2 = arguments->value2;
 
-#ifdef HALO_ANDROID
+#ifdef HALO_ILP32
 		player_effect_screen_fade_in(*(real const *)&arguments->value0, (real)value1, (real)value2, arguments->value3);
 #else
 		player_effect_screen_fade_in(arguments->value0, value1, value2, arguments->value3);
@@ -14233,7 +14233,7 @@ static void player_effect_screen_fade_out_evaluate(
 		double value1 = arguments->value1;
 		double value2 = arguments->value2;
 
-#ifdef HALO_ANDROID
+#ifdef HALO_ILP32
 		player_effect_screen_fade_out(*(real const *)&arguments->value0, (real)value1, (real)value2, arguments->value3);
 #else
 		player_effect_screen_fade_out(arguments->value0, value1, value2, arguments->value3);

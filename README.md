@@ -1,77 +1,123 @@
-Halo 1 xbox decomp, ported to Linux, Windows and Android 
-=============
+<img src="port/ios/Assets.xcassets/AppIcon.appiconset/AppIcon-180.png" width="96" alt="Halo: CE icon">
 
-This is a port of the decompilation of Halo: Combat Evolved build 2342 (`cachebeta.exe`, sha256 `4cc87b45f721270392a96f1674ed2b5cd4a7bb4355faeab4531d1cf1884d9520`) to Linux, Windows and Android.
+# Halo: CE for iPhone and iPad
 
-<img width="1289" height="995" alt="image" src="https://github.com/user-attachments/assets/0d3ad50f-f8b8-46cf-aef8-e3661da2a7d7" />
+[![iOS build](https://github.com/NicholasDominici/halo-ce-ios/actions/workflows/ios.yml/badge.svg?branch=ios-port)](https://github.com/NicholasDominici/halo-ce-ios/actions/workflows/ios.yml)
 
-This is based on [bnunu](https://github.com/bnunu/halo)'s decompilation project, which itself is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
+An experimental native iOS/iPadOS port of Halo: Combat Evolved, built on
+[halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal) and
+[bnunu's native ports](https://github.com/bnunu/halo-1). Runs compiled ARM64
+code with OpenGL ES 3, SDL audio, and on-screen controls. No jailbreak or JIT
+is required. **You supply your own original Xbox game maps.**
 
-## Agent quick references
+**Status:** gameplay and audible sound confirmed on an iPhone 17 Pro Max
+(A19 Pro). iPad has been tested in the simulator only. This is an early port;
+a full campaign playthrough, physical iPad gameplay, hardware controllers,
+and multiplayer still need testing. The deployment target is iOS 16, but
+older devices and OS versions have not been validated.
 
-- [Current campaign house rules and batch/treemap cadence](docs/campaign_house_rules.md)
-- [Common constants, types, float patterns, tag IDs, and flag conventions](docs/common_constants.md)
-- [Shared assertion macros and byte-matching examples](docs/assertions.md)
-- [Supplied CE source maps, recovered names, and next reconstruction packets](docs/user_source_reconstruction_map_20260906.md)
-- [Matching methodology and source-credibility rules](docs/matching_methodology.md)
+![Halo menu and touch controls in the iPhone simulator](docs/ios/menu.png)
 
-## Build instructions
+*Simulator screenshot. The in-game developer text and build label are hidden.*
 
-You need Python and [ninja-build](https://ninja-build.org/) on your PATH; run `configure.py` from the repository root, then `ninja` with the target below (plain `ninja` builds the one for the computer you are on). No part of the Xbox SDK is needed: the SDK declarations the game uses are in [port/include/xdk](port/include/xdk/README.md).
+## Get the app
 
-Every pushed commit is built by GitHub Actions ([.github/workflows/build.yml](.github/workflows/build.yml)): debug and release builds for Linux, Windows and Android, made by `tools/ci_build.py` (which also works locally, e.g. `python tools/ci_build.py linux release`) and kept as artifacts for three days.
+1. Download an **unsigned IPA** from [Releases](https://github.com/NicholasDominici/halo-ce-ios/releases),
+   or the `halo-ce-ios-unsigned` artifact from a successful
+   [iOS workflow run](https://github.com/NicholasDominici/halo-ce-ios/actions/workflows/ios.yml).
+2. Sign and install it using your own Apple account and provisioning profile.
+   An unsigned IPA cannot be installed directly. This repository does not
+   provide a shared certificate or App Store/TestFlight distribution.
+3. Copy your original Xbox maps into the app's `Documents/maps` folder
+   **before launching the game**. See the [installation guide](port/ios/README.md#install-and-add-game-data).
 
-### Native Linux build
+For the documented Xcode signing route, build from source below. Keep the
+same bundle identifier for future updates so your app data remains associated
+with the app. Back up `Documents/save` before uninstalling.
 
-`ninja linux` compiles the game with clang into a native 32-bit Linux executable, `build/linux/halo`. It needs clang, 32-bit glibc development files and 32-bit SDL3. It renders with OpenGL, plays sound through SDL3 audio, and takes keyboard, mouse and gamepad input. Put the PAL game data (build 01.01.14.2342) under `assets/` so that `assets/maps` exists, then run `build/linux/halo`. See [port/linux/README.md](port/linux/README.md) for controls and settings.
+## Build from source
 
-### Debug and release
+Use an **Apple Silicon Mac**, full Xcode with the iOS SDK, and Python 3.
+Local development used Xcode 27 and Homebrew LLVM/LLD 23.1.2. CI builds with
+the Xcode selected on GitHub's `macos-26` ARM64 runner.
 
-The native builds (Linux, Windows, Android) are debug builds by default: like the build the decompilation reproduces, they stop at the first failed assertion and log it. `python configure.py --release` configures release builds instead, which, like the retail game, do not check assertions. The byte-matching build is unaffected.
+```sh
+git clone --branch ios-port https://github.com/NicholasDominici/halo-ce-ios.git
+cd halo-ce-ios
+brew install cmake ninja llvm lld sdl3 pkgconf
 
-### Optimisation
+# Regression checks (no game data or Apple account needed).
+python3 tools/ios_test.py
 
-The Linux and Windows builds are optimised for the processor of the computer that builds them (`-march=native`), and may not start on another. `python configure.py --portable` targets the x86-64 baseline instead (SSE2, which every 64-bit x86 processor has): use it for builds you share.
+# Build a device IPA for signing later.
+python3 tools/ios_build.py --unsigned --ipa dist/Halo-CE-iOS-unsigned.ipa
 
-They also use full link-time optimisation by default, which makes the final link take a minute or so; `--lto=thin` links in parallel and incrementally, `--lto=off` not at all.
+# Or build and sign with the Apple account configured in Xcode.
+python3 tools/ios_build.py --team YOUR_TEAM_ID --bundle-id com.yourname.haloce
+```
 
-They are also optimised with profiles of the game at play, recorded by an instrumented build playing the main menu and the opening minute of every campaign level by itself: `pgo/halo_linux.profdata` for Linux (and Android, whose code is almost the same) and `pgo/halo_windows.profdata` for Windows. The profiles need clang 22 or later; with an older clang, and with `--pgo=off`, the builds do without. A profile stays useful as the code changes (functions it does not know simply go without). To record a new one, delete it and configure with `--pgo=train`: `ninja linux` or `ninja windows` then builds the instrumented game and plays the levels (about fifteen minutes, in a window, silently; it needs the game data in `assets/`) before the real build. Over ssh, Windows plays them on the logged-in user's desktop, through a scheduled task. `--pgo-profile <file>` uses another profile.
+The script downloads SDL, musl, and Khronos headers; it does not download game
+data. Use `--simulator` for an ARM64 simulator build. See the
+[full guide](port/ios/README.md) for prerequisites, installation, controls,
+troubleshooting, and architecture.
 
-With Mesa drivers the Linux build makes its GL calls through Mesa's GL thread (`mesa_glthread`), which takes them off the game's thread.
+## Game data
 
-Frames per second at the opening of a30, uncapped (`vsync = false` in `config.toml`, or `HALO_NO_VSYNC=1`), about 510 draws per frame; each row adds one change to the one above (Linux: a laptop with an Intel Core i7-1355U and Iris Xe graphics, median of three runs; Android: a Pixel 9 Pro XL, Tensor G4, median of three runs):
+The iOS cache validator accepts original Xbox v5 maps with these build IDs:
 
-| Change | Linux | Android |
-| --- | ---: | ---: |
-| Original | 103 | 132 |
-| GL state set only when it changes | 139 | 156 |
-| Vertex and index buffers from a GL copy of the Xbox memory | 171 | 193 |
-| Full link-time optimisation | 189 | not applicable |
-| Profile-guided optimisation | 201 | 197 |
-| `-march=native` (`--portable`, x86-64: 212; Android: `-mcpu=cortex-x3`, not used) | 224 | 191 |
-| Mesa's GL thread | 257 | not applicable |
-| Sound obstruction tested once per game tick, cheaper per-draw bookkeeping | 303 | 220 |
+| Release | Cache build | Coverage |
+| --- | --- | --- |
+| NTSC-US | `01.10.12.2276` | iPhone gameplay and audio confirmed |
+| PAL | `01.01.14.2342` | Original upstream baseline; not played on iOS yet |
 
-Android has no equivalent of `-march=native`: the build runs on any 64-bit phone, and compiling for the Pixel's big cores made it slower there anyway, so its last row builds on the profile-guided one. On the laptop the game's own thread no longer sets the frame rate: it spends about as long waiting for the GL and driver threads and the GPU (which the laptop's power management keeps at a low clock for this load) as they spend waiting for it. The same holds in heavier scenes such as b30, at about 190.
+Inspect or extract maps from your own XISO:
 
-Unity ("jumbo") builds, which compile many files as one, would give the compiler nothing full link-time optimisation does not already see, and the decompiled sources declare too many conflicting local types for it anyway. `-O3` and profile-driven function splitting measured no faster than `-O2`.
+```sh
+python3 tools/ios_extract_assets.py '/path/to/Halo.xiso.iso'
+python3 tools/ios_extract_assets.py '/path/to/Halo.xiso.iso' --output assets
+```
 
-### Frame rate
+PC, Custom Edition, Anniversary, and MCC data are not interchangeable with
+these maps. The extraction tool preserves the original bytes and records
+SHA-256 hashes; it does not patch map headers. No maps or disc images are
+included in this repository or its releases.
 
-The native builds draw a frame at every refresh of the display (60, 90, 120, 240 Hz, ...), paced by vsync, while the game still simulates at 30 Hz as on the Xbox: each frame blends the last two ticks. To see the frame rate, open the developer console (the \` key) and enter `display_framerate true`; the frames per second, averaged over half a second, appear at the bottom right of the screen. `interpolation = false` in `config.toml` (written next to the executable, or in the data folder on Android, on the first run) restores the original 30 frames per second. See [port/linux/README.md](port/linux/README.md#frame-rate).
+## Controls and limitations
 
-### Native Windows build
+- Left stick: move. Right stick: look. Arrows: navigate menus.
+- A: select/jump. B: back/melee. X: reload/use. Y: change weapon.
+- Separate buttons: fire, grenade, crouch, zoom, flashlight, grenade selection,
+  and pause. “Hide controls” leaves a small button to restore them.
+- Hardware controller support is wired through SDL but has not been verified
+  on a physical iOS device. Internet invites and clipboard joining default off.
+- Bink intro movies are unsupported. Simulator rendering is slow and does
+  not represent device performance. Assertions remain enabled in this initial port.
 
-`ninja windows`, run on Windows, compiles the game with clang into a native 32-bit Windows executable, `build/windows/halo.exe` (with `SDL3.dll`), sharing the Linux build's platform layer. It needs LLVM, Python and ninja, plus Visual Studio's x86 C++ libraries and a Windows SDK. Put the game data under `assets/` as for Linux. See [port/windows/README.md](port/windows/README.md).
+Read the [validation record](port/ios/VALIDATION.md) before reporting coverage.
+For bugs, [open an issue](https://github.com/NicholasDominici/halo-ce-ios/issues)
+with device model, OS, build/commit, map build ID, and reproduction steps.
+Relevant excerpts from `Documents/ios-runtime.log` and `debug.txt` help;
+remove personal paths, network addresses, and invite links before sharing.
+Please do not upload game files or signing credentials.
 
-### Android build
+## Credits and upstream
 
-`ninja android_apk` builds an arm64 Android app (`port/android/app/build/outputs/apk/debug/app-debug.apk`) that runs the game natively on 64-bit ARM phones, with OpenGL ES 3 rendering at the device's aspect ratio, SDL3 audio and game controller support (including a PS5 DualSense over Bluetooth). It needs the Android NDK and a clang with the `arm64_32` target in addition to the Linux build's requirements. The game data goes in the app's storage (the app offers to import it). See [port/android/README.md](port/android/README.md).
+The iOS work builds on the ARM64 runtime, renderer, audio, and platform work
+in [cybersecurity/halo-ce-universal](https://github.com/cybersecurity/halo-ce-universal),
+[bnunu/halo-1](https://github.com/bnunu/halo-1), and the original decompilation
+in [punpckhdq/halo](https://github.com/punpckhdq/halo). Their Git history is
+preserved. This branch started at upstream commit `16514a13`; later upstream
+changes are integrated separately from the tested iOS baseline.
 
-### Matching build
+The Android application, Gradle project, NDK build, and Android-only host
+services have been removed from this branch. Portable ILP32 runtime code lives
+in `port/runtime`; native UIKit/Darwin services live in `port/ios`. The shared
+renderer and Xbox compatibility layer remain under `port/linux` with their
+original history. The [upstream README](README.upstream.md) is preserved as a
+historical reference; use the upstream repositories for Android builds.
+Desktop CI is manual; this fork automatically builds iOS. See [third-party notices](port/ios/THIRD_PARTY.md)
+and the inherited [CC0 license](LICENSE.md).
 
-This fork builds only the native ports. The upstream project's byte-matching build, which compiles the game with the Xbox SDK's own compiler and compares it with `cachebeta.exe`, needs the August 2001 Xbox SDK, which cannot be redistributed, so `configure.py` no longer writes it. Its sources, configuration and `#ifdef`s are kept as they are, so that upstream's matching work still merges; `SolutionConfig.matching` in `tools/project_x86.py` turns it back on, for a checkout with the SDK's `XDK/xbox` folder extracted to `xbox/` and `cachebeta.exe` in the repository root. See [port/linux/README.md](port/linux/README.md#the-matching-build-on-a-linux-host) for running it on Linux.
-
-## Where's all the type information?
-
-We use debug symbols from later Halo games to help map structures, enums, type definitions, function signatures and some variable names. You should obtain a copy of the Halo CEA beta and run it through [pdb-decompiler](https://github.com/camden-smallwood/pdb-decompiler) to obtain debug info for yourself. Note that CEA is based off of Halo PC and has its own modifications which make it not 100% accurate to the original Xbox title.
+This is an unofficial community project, unaffiliated with Microsoft, Bungie,
+or Halo Studios. Halo, Master Chief, artwork, and game assets belong to their
+respective rights holders; the project license does not grant rights to them.

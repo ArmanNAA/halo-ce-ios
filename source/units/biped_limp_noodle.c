@@ -199,7 +199,7 @@ static boolean biped_limp_noodle_valid_joint_rotation(
 					projection_distance,
 					&rotate_to_position);
 #ifndef HALO_LINUX
-				/* the native ports (port/linux, port/android, port/windows) skip
+				/* the native ports (port/linux, port/ios, port/windows) skip
 				this check: it holds only with the Xbox's x87 precision, and single
 				precision math misses it far from the world origin (the projected
 				point is still correct to within the rounding) */

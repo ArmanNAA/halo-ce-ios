@@ -116,20 +116,11 @@ int posix_set_read_only(const char *path, int read_only)
 
 int posix_make_directory(const char *path)
 {
-#ifdef __ANDROID__
-	/* readable by the shell user (adb), for managing saves in the app's
-	external storage (port/android/host/host_main.c) */
-	if (mkdir(path, 0775) != 0)
-		return -1;
-	chmod(path, 02775);
-	return 0;
-#else
 	return mkdir(path, 0755);
-#endif
 }
 
 #ifdef __LP64__
-/* The Android port calls this file from 32-bit guest code, which cannot
+/* The iOS port calls this file from 32-bit guest code, which cannot
 hold a 64-bit DIR pointer: directory streams are small handles there. */
 #include <pthread.h>
 

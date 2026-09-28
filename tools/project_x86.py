@@ -36,7 +36,7 @@ from .semantic_progress import (
     revoke_incomplete_units,
 )
 from .linux_build import generate_linux_build, linux_configure_inputs
-from .android_build import generate_android_build, android_configure_inputs
+from .ios_guest_build import generate_ios_guest_build, ios_guest_configure_inputs
 from .windows_build import generate_windows_build, windows_configure_inputs
 from .parked_functions import (
     ParkedFunctionsError,
@@ -139,8 +139,6 @@ class SolutionConfig:
         self.wrapper: Optional[Path] = None  # If None, download wibo on Linux
         self.linux_cc: Optional[str] = None  # Native Linux build compiler (default clang)
         self.port_release: bool = False  # native ports without assertion checks (configure.py --release)
-        self.android_ndk: Optional[str] = None  # Android NDK (default: found from the environment)
-        self.android_guest_cc: Optional[str] = None  # Android guest compiler (default clang)
         
         # Project config
         self.baserom: Optional[Path] = None
@@ -274,7 +272,7 @@ def generate_native_build_ninja(sln: SolutionConfig) -> None:
     n.newline()
 
     generate_linux_build(n, sln)
-    generate_android_build(n, sln)
+    generate_ios_guest_build(n, sln)
     generate_windows_build(n, sln)
 
     n.comment("Reconfigure on change")
@@ -293,7 +291,7 @@ def generate_native_build_ninja(sln: SolutionConfig) -> None:
             python_lib,
             python_lib_dir / "ninja_syntax.py",
             *linux_configure_inputs(),
-            *android_configure_inputs(),
+            *ios_guest_configure_inputs(),
             *windows_configure_inputs(),
         ],
     )
@@ -635,9 +633,9 @@ def generate_build_ninja(sln: SolutionConfig) -> None:
     generate_linux_build(n, sln)
 
     ###
-    # Android build (not part of the matching graph)
+    # iOS build (not part of the matching graph)
     ###
-    generate_android_build(n, sln)
+    generate_ios_guest_build(n, sln)
 
     ###
     # Windows build (not part of the matching graph; generated on Windows)
@@ -663,7 +661,7 @@ def generate_build_ninja(sln: SolutionConfig) -> None:
             python_lib,
             python_lib_dir / "ninja_syntax.py",
             *linux_configure_inputs(),
-            *android_configure_inputs(),
+            *ios_guest_configure_inputs(),
             *windows_configure_inputs(),
         ],
     )

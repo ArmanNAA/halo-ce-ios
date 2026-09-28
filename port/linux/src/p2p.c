@@ -1659,7 +1659,7 @@ static int command_line_invite(char *text, int size)
 
 int p2p_hand_off_invite(void)
 {
-#ifdef HALO_ANDROID
+#ifdef HALO_ILP32
 	return 0;
 #else
 	char invite[256];
@@ -1710,7 +1710,7 @@ static void handoff_readable(void)
 	p2p_invite_received(message + 12);
 }
 
-#ifdef HALO_ANDROID
+#ifdef HALO_ILP32
 /* the app's activity writes a link it was opened with here */
 static void poll_invite_file(void)
 {
@@ -1854,7 +1854,7 @@ static void *p2p_thread(void *unused)
 		update_hosting();
 		update_joining();
 		p2p_discord_update();
-#ifdef HALO_ANDROID
+#ifdef HALO_ILP32
 		poll_invite_file();
 #endif
 	}
@@ -1894,7 +1894,7 @@ void p2p_initialize(unsigned long local_address)
 		posix_socket_setsockopt(p2p.tunnel_socket, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size));
 		posix_socket_setsockopt(p2p.tunnel_socket, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
 	}
-#ifndef HALO_ANDROID
+#ifndef HALO_ILP32
 	/* the first copy of the game takes the invites later ones are opened
 	with */
 	p2p.handoff_socket = open_socket(SOCK_DGRAM, network_long(0x7F000001), network_short(HANDOFF_PORT), NULL);

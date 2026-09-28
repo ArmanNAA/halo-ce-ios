@@ -1,7 +1,7 @@
 /*
 HALO_PORT_LIMITS.H
 
-Multiplayer session limits of the native builds (Windows, Linux, Android),
+Multiplayer session limits of the native builds (Windows, Linux, iOS),
 force-included by halo_linux_prefix.h and halo_windows_prefix.h.
 
 The Xbox game allows 16 players on at most 4 machines (up to 4 players each

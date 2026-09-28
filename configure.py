@@ -74,12 +74,12 @@ parser.add_argument(
     "--compiler-launcher",
     metavar="BINARY",
     help="native ports: a program that runs each compile, such as ccache "
-    "(links and the Android host's few units run the compiler directly)",
+    "(links and the native host's few units run the compiler directly)",
 )
 parser.add_argument(
     "--release",
     action="store_true",
-    help="release builds of the native ports (Linux, Windows, Android): assertions are not checked",
+    help="release builds of the native ports (Linux, Windows, iOS): assertions are not checked",
 )
 parser.add_argument(
     "--lto",
@@ -111,16 +111,6 @@ parser.add_argument(
     type=Path,
     help="native ports: profile-guided optimisation from this profile instead",
 )
-parser.add_argument(
-    "--android-ndk",
-    type=str,
-    help="Android NDK for `ninja android` (default: ANDROID_NDK_HOME, or the newest under the Android SDK)",
-)
-parser.add_argument(
-    "--android-guest-cc",
-    type=str,
-    help="clang with the arm64_32 target for the Android guest (default: clang)",
-)
 if not is_windows():
     parser.add_argument(
         "--wrapper",
@@ -129,6 +119,9 @@ if not is_windows():
         help="path to wibo or wine (optional)",
     )
 
+parser.add_argument("--ios", action="store_true", help="build the native iOS guest")
+parser.add_argument("--ios-llvm", default="/opt/homebrew/opt/llvm", help="LLVM installation with arm64_32 clang")
+parser.add_argument("--ios-lld", default="/opt/homebrew/opt/lld/bin/ld.lld", help="ELF linker for the iOS guest")
 args = parser.parse_args()
 
 # path setup
@@ -185,8 +178,9 @@ sln.port_lto = args.lto
 sln.port_portable = args.portable
 sln.port_pgo = args.pgo
 sln.port_pgo_profile = args.pgo_profile
-sln.android_ndk = args.android_ndk
-sln.android_guest_cc = args.android_guest_cc
+sln.ios = args.ios
+sln.ios_llvm = args.ios_llvm
+sln.ios_lld = args.ios_lld
 if not is_windows():
     sln.wrapper = args.wrapper
 

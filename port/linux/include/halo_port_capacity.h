@@ -1,7 +1,7 @@
 /*
 HALO_PORT_CAPACITY.H
 
-Memory capacity of the native builds (Windows, Linux, Android), sized for the
+Memory capacity of the native builds (Windows, Linux, iOS), sized for the
 session limits in halo_port_limits.h, which includes this file. Game sources
 use these values only under #ifdef HALO_LINUX, so the byte-matching MSVC build
 keeps the Xbox sizes (given in parentheses below).

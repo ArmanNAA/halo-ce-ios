@@ -1,25 +1,19 @@
-name: Build
+name: Upstream desktop (manual)
 
-# Debug and release builds of the native ports (Linux, Windows, Android) for
-# every pushed commit, uploaded as artifacts. tools/ci_build.py does each
+# Debug and release builds of the native ports (Linux, Windows) for
+# manual runs, uploaded as artifacts. tools/ci_build.py does each
 # build; see it for the options.
 #
 # Kept cheap:
 # - one job per platform builds both configurations, so its set-up (tools,
 #   downloads, caches) is paid once;
 # - compiles go through ccache, whose cache carries over from run to run, so
-#   a commit only recompiles what it changed; downloads (SDL, musl, Gradle)
+#   a commit only recompiles what it changed; downloads (SDL, musl)
 #   are cached too;
 # - a newer push to the same branch cancels a run still going;
-# - pushes that only change documentation do not build;
 # - Windows, whose minutes cost twice Linux's, builds only Windows;
 # - artifacts are kept for three days.
 on:
-  push:
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - "research/**"
   workflow_dispatch:
 
 concurrency:
@@ -79,62 +73,6 @@ jobs:
         with:
           name: halo-linux-release
           path: dist/halo-linux-release
-          retention-days: 3
-
-  android:
-    # The runner image has the Android SDK and NDK, a JDK and CMake.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    steps:
-      - name: Install the toolchain
-        run: |
-          mkdir -p "$RUNNER_TEMP/tools"
-          curl -fsSL -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip
-          unzip -q ninja.zip -d "$RUNNER_TEMP/tools" && rm ninja.zip
-          curl -fsSL https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-linux-x86_64.tar.xz \
-            | tar -xJ -C "$RUNNER_TEMP/tools" --strip-components=1 ccache-4.10.2-linux-x86_64/ccache
-          echo "$RUNNER_TEMP/tools" >> "$GITHUB_PATH"
-
-      - uses: actions/checkout@v4
-
-      - uses: actions/cache@v4
-        with:
-          path: .ccache
-          key: ccache-android-${{ github.sha }}
-          restore-keys: ccache-android-
-
-      # musl and SDL, which configure.py fetches
-      - uses: actions/cache@v4
-        with:
-          path: build/android/third_party
-          key: android-third-party-${{ hashFiles('tools/android_build.py') }}
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('port/android/**/*.gradle*', 'port/android/gradle/wrapper/gradle-wrapper.properties') }}
-
-      - name: Debug
-        run: python3 tools/ci_build.py android debug
-
-      - name: Release
-        run: python3 tools/ci_build.py android release
-
-      - name: Compile cache
-        run: ccache --show-stats
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: halo-android-debug
-          path: dist/halo-android-debug
-          retention-days: 3
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: halo-android-release
-          path: dist/halo-android-release
           retention-days: 3
 
   windows:

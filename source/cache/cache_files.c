@@ -585,7 +585,13 @@ boolean cache_file_header_verify(
 		return FALSE;
 	}
 
-	if (csstrcmp(header->build, "01.01.14.2342"))
+	/* The NTSC-US v5 cache shares PAL's tag layout, 0x803A6000 base,
+       and script bytecode target. Keep the exact build allowlist. */
+    if (csstrcmp(header->build, "01.01.14.2342")
+#ifdef HALO_IOS
+        && csstrcmp(header->build, "01.10.12.2276")
+#endif
+        )
 	{
 		if (fatal)
 		{

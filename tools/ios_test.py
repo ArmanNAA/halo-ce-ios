@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+"""Run native ILP32, memory-tracking and SDL audio handoff regressions."""
+import shlex
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+BUILD = ROOT / 'build/ios/probe'
+BUILD.mkdir(parents=True, exist_ok=True)
+
+def run(*args):
+    subprocess.run([str(a) for a in args], cwd=ROOT, check=True)
+
+clang = '/opt/homebrew/opt/llvm/bin/clang'
+lld = '/opt/homebrew/opt/lld/bin/ld.lld'
+run(clang, '--target=arm64_32-apple-watchos', '-mcpu=cortex-a53', '-ffixed-x15', '-ffixed-x27',
+    '-mllvm', '-aarch64-enable-compress-jump-tables=false', '-fno-stack-protector', '-ffreestanding',
+    '-O2', '-S', 'port/ios/tests/guest_probe.c', '-o', BUILD/'probe.darwin.s')
+run('python3', 'tools/ios_asm_convert.py', BUILD/'probe.darwin.s', BUILD/'probe.s')
+run(clang, '--target=aarch64-none-elf', '-c', BUILD/'probe.s', '-o', BUILD/'probe.o')
+run(lld, '-m', 'aarch64linux', '-static', '-nostdlib', '-T', 'port/ios/guest.ld', BUILD/'probe.o', '-o', BUILD/'probe.elf')
+run('python3', 'tools/ios_embed_guest.py', BUILD/'probe.elf', BUILD/'embed')
+run('xcrun','clang','-O2',f'-I{BUILD}/embed','port/ios/tests/probe_runner.c',
+    'port/ios/host/guest_call.S',BUILD/'embed/guest_image.S','-o',BUILD/'runner')
+run(BUILD/'runner')
+run('xcrun','clang','-O2','-Iport/ios/host','-Iport/ios/host','-Iport/runtime/include',
+    '-Iport/runtime/guest/runtime','port/ios/tests/memory_probe.c','port/ios/host/host_memory.c','-o',BUILD/'memory-probe')
+run(BUILD/'memory-probe')
+sdl_flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', 'sdl3'], text=True))
+run('xcrun', 'clang', '-O2', '-DHALO_IOS=1', '-Iport/ios/host', '-Iport/ios/host',
+    '-Iport/runtime/include', 'port/ios/tests/audio_probe.c', '-Wl,-dead_strip',
+    *sdl_flags, '-o', BUILD/'audio-probe')
+run(BUILD/'audio-probe')
