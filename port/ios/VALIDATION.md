@@ -1,7 +1,7 @@
 # iOS validation
 
-Initial validation: 2026-09-28. These observations apply to the initial iOS
-runtime based on upstream `16514a13`. Automated build results for later commits
+Updated: 2026-09-28. This runtime is based on upstream `16514a13`.
+Build-specific observations are distinguished below. Automated build results
 are visible in [GitHub Actions](https://github.com/NicholasDominici/halo-ce-ios/actions/workflows/ios.yml).
 
 ## Observed coverage
@@ -13,12 +13,13 @@ are visible in [GitHub Actions](https://github.com/NicholasDominici/halo-ce-ios/
 | ARM64 iPhone simulator, iOS 27 | Menu, landscape layout, touch controls, icon, and removal of debug overlays checked |
 | ARM64 iPad Pro 13-inch (M5) simulator, iOS 26 | Menu and `a10` opening scene rendered; software rendering slow |
 | Existing saved data after an app update | Player profile and campaign save remained present |
-| Physical iPad | Not tested |
+| Physical iPad Pro 13-inch (M5), iPadOS 27 beta | Build 5 imported a real XISO and reached the opening campaign scene; build 6 displayed the menu at native 2752 × 2064 |
+| Physical iPad orientation, build 6 | Player confirmed turning the iPad upright keeps the game horizontal with controls visible |
 
 The final name/icon/overlay update was installed on the phone and visually
 checked in the simulator. Physical gameplay and sound were confirmed on the
-preceding runtime build. A simulator result does not establish physical iPad
-compatibility, and a deployment target does not establish older-device coverage.
+preceding runtime build. Native-resolution build 6 has not been installed or
+played on the iPhone. A deployment target does not establish older-device coverage.
 
 ## Local toolchain
 
@@ -51,6 +52,10 @@ The regression suite passes locally and covers:
    images, missing maps, unsafe/duplicate names, directory cycles, mixed builds,
    cancellation/retry, existing destination preservation, and seeded corruption.
 
+5. Twelve display-size cases under AddressSanitizer/UndefinedBehaviorSanitizer:
+   native iPad/iPhone pixel dimensions, lower-resolution presets, original 4:3
+   framing, non-integer aspect ratios, drawable/GPU limits, and invalid inputs.
+
 ## In-app XISO import (build 4)
 
 The iPhone and iPad simulators imported a real NTSC-US XISO directly from the
@@ -65,9 +70,31 @@ and replacing maps recovered the originals on relaunch; valid maps skipped
 extraction on subsequent launches. The iOS Xcode target explicitly enables ARC, and the importer rejects compilation
 without it so asynchronous error strings remain valid.
 
-The importer itself has not yet been exercised on a physical device or with
-an iCloud-hosted image. Parser cancellation is covered automatically; UI
-cancellation and cloud-provider download behavior still need device testing.
+On the physical M5 iPad, build 5 automatically imported a real NTSC-US XISO
+copied into Documents and reached the opening campaign scene. The physical
+Files-picker path and an iCloud-hosted image have not been exercised. Parser
+cancellation is covered automatically; UI cancellation and cloud-provider
+download behavior still need device testing.
+
+## Native resolution and landscape (build 6, version 0.1.2)
+
+The signed app was installed on the physical M5 iPad. Its console reported
+`iOS render target: 2752x2064 (logical 640x480)` on the Apple M5 GPU, and a
+2752 × 2064 device screenshot showed the complete landscape menu and controls.
+The player confirmed that rotating the iPad upright keeps Halo horizontal with
+all controls visible. SHA-256 hashes of all three persistent files under
+`Documents/save/u` matched before and after the update. The original app bundle
+identifier was retained, and previously imported maps remained available.
+
+The native render-size calculation applies to both device families, but this
+build's physical evidence is limited to the iPad menu and orientation check.
+Native-resolution campaign performance and long sessions have not been measured.
+
+An iPadOS 27 beta simulator (24A5355p) cold-started with a portrait canvas that
+cropped landscape content despite reporting a landscape scene. This did not
+occur in the physical iPad session above. Automated orientation screenshot
+capture completed, but its images do not constitute a passing layout test.
+Simulator portrait cold-start behavior remains a known issue.
 
 CI runs these probes and compiles device and simulator apps without game data.
 It does **not** play the game or validate a personal provisioning profile.
@@ -78,7 +105,7 @@ embedding the compiled code into the iOS app.
 
 ## Still unverified
 
-Physical iPad gameplay, older iPhones/iOS versions, a complete campaign,
+Extended physical iPad gameplay, older iPhones/iOS versions, a complete campaign,
 physical controllers, network multiplayer, audio route changes/headphones,
 and prolonged background/resume behavior. PAL maps are accepted by the cache
 validator but have not been played on iOS. Bink intro videos are unsupported.

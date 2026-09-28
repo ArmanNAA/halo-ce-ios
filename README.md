@@ -11,8 +11,10 @@ OpenGL ES 3 graphics, SDL audio, and on-screen touch controls.
 You'll need to provide your own Halo: CE XISO, which the app imports right on
 your device.
 
-I've been testing it on an iPhone 17 Pro Max. It's still early, so if you hit
-a bug, please [open an issue](#reporting-bugs).
+I've been testing it on an iPhone 17 Pro Max and an iPad Pro 13-inch (M5).
+The iPad imports a XISO on-device and runs at its native 2752 × 2064 resolution.
+It stays horizontal when turned upright. It's still early, so if you hit a bug,
+please [open an issue](#reporting-bugs).
 
 ![Halo's main menu with the on-screen controls](docs/ios/menu.png)
 
@@ -63,6 +65,17 @@ you delete the app.
   **SWAP G** (switch grenades), and **PAUSE** each get their own button
 
 Tap **Hide controls** for a clean screen, and **Show controls** to bring them back.
+
+## Display settings
+
+Halo runs at native display resolution by default and stays in landscape on
+iPhone and iPad. You can lower the render resolution or use original 4:3
+framing in `Documents/config.toml`; see [resolution settings](port/ios/README.md#resolution).
+An in-app graphics menu and anti-aliasing are not implemented yet.
+
+The [validation record](port/ios/VALIDATION.md) lists what has been tested and
+known issues, including a cropped portrait canvas on an iPadOS 27 beta simulator
+cold start.
 
 ## Building from source
 
