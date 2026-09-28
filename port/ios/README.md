@@ -136,6 +136,27 @@ before uninstalling or changing bundle IDs.
 
 ## Controls
 
+### Resolution
+
+Native physical display resolution is the default, with a Retina drawable and
+matching internal color/depth targets. The game retains its original logical
+layout coordinates, so the HUD and touch controls keep their size.
+
+For a lower GPU workload, edit the existing `[display]` section of
+`Documents/config.toml` and relaunch:
+
+```toml
+render_height = 0 # Native (default); 1080, 720, or 480 render fewer pixels
+screen_width = 0  # Fit the display; 640 selects original 4:3
+```
+
+The renderer preserves the selected aspect ratio and caps the render size to
+the drawable and GPU texture limit. Existing configuration files without
+`render_height` automatically use native resolution. Anti-aliasing and an
+in-app graphics settings menu are not implemented yet.
+
+### Touch and controller input
+
 The left stick moves and the right stick aims. The four arrows navigate menus.
 A selects/jumps; B returns/melees; X reloads/uses; Y changes weapons. Separate
 buttons provide fire, grenade, crouch, zoom, flashlight, grenade selection,

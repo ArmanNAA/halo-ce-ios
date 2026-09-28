@@ -55,15 +55,23 @@ int main(int argc,char **argv) {
         if(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_GAMEPAD))host_fatal("SDL initialization: %s",SDL_GetError());
         host_ios_touch_initialize();
         const SDL_DisplayMode *mode=SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
-        int width=640;
-        if(mode && mode->w && mode->h){int longer=mode->w>mode->h?mode->w:mode->h;int shorter=mode->w>mode->h?mode->h:mode->w;width=(480*longer/shorter)&~1;}
-        char env_data[1200],env_save[1200],env_width[64];
+        int width=640,pixel_width=640,pixel_height=480;
+        if(mode && mode->w && mode->h){
+            int longer=mode->w>mode->h?mode->w:mode->h,shorter=mode->w>mode->h?mode->h:mode->w;
+            float density=mode->pixel_density>0?mode->pixel_density:1;
+            width=(480*longer/shorter)&~1;
+            pixel_width=(int)(longer*density+0.5f);pixel_height=(int)(shorter*density+0.5f);
+        }
+        char env_data[1200],env_save[1200],env_width[64],env_pixel_width[64],env_pixel_height[64];
         snprintf(env_data,sizeof(env_data),"HALO_DATA_ROOT=%s",data_root);
         snprintf(env_save,sizeof(env_save),"HALO_SAVE_ROOT=%s",save_root);
         snprintf(env_width,sizeof(env_width),"HALO_DISPLAY_WIDTH=%d",width);
-        const char *env[]={env_data,env_save,env_width,"TZ=UTC0",NULL};
-        uint32_t *environment=host_low_map(sizeof(uint32_t)*5,PROT_READ|PROT_WRITE);
-        for(int i=0;i<4;i++)environment[i]=copy_string(env[i]);environment[4]=0;
+        snprintf(env_pixel_width,sizeof(env_pixel_width),"HALO_DISPLAY_PIXEL_WIDTH=%d",pixel_width);
+        snprintf(env_pixel_height,sizeof(env_pixel_height),"HALO_DISPLAY_PIXEL_HEIGHT=%d",pixel_height);
+        const char *env[]={env_data,env_save,env_width,env_pixel_width,env_pixel_height,"TZ=UTC0",NULL};
+        size_t env_count=sizeof(env)/sizeof(env[0]);
+        uint32_t *environment=host_low_map(sizeof(uint32_t)*env_count,PROT_READ|PROT_WRITE);
+        for(size_t i=0;i<env_count-1;i++)environment[i]=copy_string(env[i]);environment[env_count-1]=0;
         uint32_t *arguments=host_low_map(8,PROT_READ|PROT_WRITE);arguments[0]=copy_string("halo");arguments[1]=0;
         struct halo_guest_boot *boot=host_low_map(sizeof(*boot),PROT_READ|PROT_WRITE);
         *boot=(struct halo_guest_boot){1,guest_pointer(arguments),guest_pointer(environment),0x4000};

@@ -25,6 +25,7 @@ Conventions carried over from the Xbox:
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
 #include "port_config.h"
+#include "halo_display.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -66,10 +67,11 @@ game's camera derives its horizontal field of view from the viewport, so the
 640 columns; while they draw (halo_screen_ui_offset), everything shifts right
 to center them.
 
-Fullscreen on the desktop also draws at the display's resolution: render
+The native ports also draw at the display's resolution: render
 targets the size of the screen get that many pixels (screen_scale), and
 viewports, clears and visibility counts are scaled to match, so the game
-still works in its 480 lines. The width and the scale change only between
+still works in its 480 lines. iOS display.render_height can reduce the render
+size; its default of zero uses physical native pixels. The width and scale change only between
 frames, after one is presented (halo_screen_commit). */
 
 #define SCREEN_HEIGHT 480
@@ -80,6 +82,7 @@ render target the size of the screen has per unit of it */
 static long screen_width;
 static float screen_scale[2] = { 1.0f, 1.0f };
 static long ui_offset;
+static GLint screen_maximum_texture_size = 8192;
 #define UI_OFFSET ((GLint)ui_offset)
 
 static void screen_mode_choose(long *width, float scale[2])
@@ -88,8 +91,13 @@ static void screen_mode_choose(long *width, float scale[2])
 	/* display.screen_width, or 0 for the display's shape, which the app
 	passes (port/ios/host/host_main.m) */
 	const char *display = getenv("HALO_DISPLAY_WIDTH");
+	const char *pixels_x = getenv("HALO_DISPLAY_PIXEL_WIDTH");
+	const char *pixels_y = getenv("HALO_DISPLAY_PIXEL_HEIGHT");
+	long requested_width = config_integer("display.screen_width");
+	int drawable_width = 0, drawable_height = 0;
+	struct halo_display_size pixels;
 
-	*width = config_integer("display.screen_width");
+	*width = requested_width;
 	if (*width <= 0)
 		*width = display ? atol(display) : 640;
 	if (*width < 640)
@@ -97,7 +105,17 @@ static void screen_mode_choose(long *width, float scale[2])
 	if (*width > 1600)
 		*width = 1600;
 	*width &= ~1L;
-	scale[0] = scale[1] = 1.0f;
+	/* The drawable is authoritative once the UIKit window exists. Before
+	   then the native host supplies the display's physical pixel dimensions. */
+	platform_video_drawable_size(&drawable_width, &drawable_height);
+	if (drawable_width <= 0 || drawable_height <= 0) {
+		drawable_width = pixels_x ? atoi(pixels_x) : (int)*width;
+		drawable_height = pixels_y ? atoi(pixels_y) : SCREEN_HEIGHT;
+	}
+	pixels = halo_display_render_size(drawable_width, drawable_height, *width,
+		requested_width, config_integer("display.render_height"), screen_maximum_texture_size);
+	scale[0] = (float)pixels.width / (float)*width;
+	scale[1] = (float)pixels.height / (float)SCREEN_HEIGHT;
 #else
 	long display_width, display_height;
 
@@ -870,6 +888,14 @@ static void gl_initialize(void)
 
 	glGetIntegerv(GL_MAJOR_VERSION, &major);
 	glGetIntegerv(GL_MINOR_VERSION, &minor);
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &screen_maximum_texture_size);
+#ifdef HALO_ILP32
+	/* Select the real Retina drawable before allocating any screen targets. */
+	(void)halo_screen_width();
+	screen_mode_choose(&screen_width, screen_scale);
+	platform_log("iOS render target: %.0fx%.0f (logical %ldx%d)",
+		screen_width * screen_scale[0], SCREEN_HEIGHT * screen_scale[1], screen_width, SCREEN_HEIGHT);
+#endif
 #ifdef HALO_ILP32
 	{
 		BOOL es32 = major > 3 || (major == 3 && minor >= 2);
