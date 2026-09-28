@@ -107,10 +107,14 @@ xcrun devicectl device install app --device DEVICE_UDID \
 xcrun devicectl device process launch --device DEVICE_UDID com.yourname.haloce
 ```
 
-Downloaded unsigned IPAs must first be signed through your preferred signing
-tool with your own Apple account/profile. Third-party signing tools have not
-been validated as part of this port. Development signatures expire with their
-provisioning profiles.
+Downloaded unsigned IPAs must first be signed with your own Apple account.
+For packaged-IPA signing instructions, see the official
+[AltStore Classic setup guide](https://faq.altstore.io/) or
+[Sideloadly FAQ](https://sideloadly.io/faq). These signing tools have not been
+validated as part of this port; the documented Xcode route was used for the
+physical-device test. Follow your signing tool's refresh instructions before
+the provisioning profile expires. Keep the same account and bundle identifier
+when updating to preserve the app's data.
 
 ### Optional manual extraction
 
