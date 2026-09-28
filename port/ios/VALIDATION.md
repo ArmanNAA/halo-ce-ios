@@ -53,13 +53,16 @@ The regression suite passes locally and covers:
 
 ## In-app XISO import (build 4)
 
-The iPhone simulator imported a real NTSC-US XISO directly from the app's
-Documents folder, then reached the Halo menu with active audio output. All 24
-extracted maps matched the original maps byte for byte (SHA-256), the save
+The iPhone and iPad simulators imported a real NTSC-US XISO directly from the
+app's Documents folder, then reached the Halo menu with active audio output.
+All 24 extracted maps matched the original maps byte for byte (SHA-256), the save
 sentinel remained intact, and temporary import directories were removed.
-The native Choose Halo XISO button opened the system Files picker. An invalid
-image displayed a readable error and restored the choose button. The iOS
-Xcode target explicitly enables ARC, and the importer rejects compilation
+A local XCUITest also selected the real XISO through the native Files picker
+and verified that game controls appeared after import. Another selected an
+invalid image, checked the error, then selected the real image and reached the
+game without restarting the app. A simulated interruption between backing up
+and replacing maps recovered the originals on relaunch; valid maps skipped
+extraction on subsequent launches. The iOS Xcode target explicitly enables ARC, and the importer rejects compilation
 without it so asynchronous error strings remain valid.
 
 The importer itself has not yet been exercised on a physical device or with
