@@ -2844,6 +2844,26 @@ static void update_channel_for_looping_sound(
 			struct sound_permutation);
 		properties.gain *= permutation->gain;
 		properties.pitch = pitch * pitch_range->playback_rate;
+#ifdef HALO_LINUX
+		/* the channel clamps a gain outside 0-1 (sound_dsound_xbox.c); say
+		which of the tag's factors put it there */
+		if (!(properties.gain >= 0.f && properties.gain <= 1.f))
+		{
+			static long reported_gain_count = 0;
+
+			if (reported_gain_count < 8)
+			{
+				reported_gain_count++;
+				error(_error_silent,
+					"looping sound %s gain %f: class %d master %f, track %f, modifier %f (zero %f, one %f, scale %f), source %f, fade %f, permutation %f",
+					tag_get_name(sound->definition_index), properties.gain,
+					definition->sound_class, sound_manager_master_gain(definition->sound_class),
+					track->gain, definition->gain_modifier, definition->zero_gain_modifier,
+					definition->one_gain_modifier, scale, sound->source.gain, fade,
+					permutation->gain);
+			}
+		}
+#endif
 
 		match_assert(
 			"c:\\halo\\SOURCE\\sound\\sound_manager.c",

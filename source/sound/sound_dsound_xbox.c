@@ -2346,7 +2346,29 @@ static void dsound_channel_set_properties(
 	boolean gain_only)
 {
 	struct sound_channel *channel= channel_get(channel_index);
-	real gain= dsound_globals.pause_gain*properties->gain;
+	real gain;
+#ifdef HALO_LINUX
+	/* Some discs' sound tags multiply out to a gain a little above 1 (or not
+	a number) on the native builds, which halted the game when the menu music
+	started. Play it at full or no volume instead; the sound manager logs the
+	factors behind it (update_channel_for_looping_sound). */
+	struct platform_sound_channel_properties clamped_properties;
+
+	if (!(properties->gain>=0.f && properties->gain<=1.f))
+	{
+		static long reported_gain_count= 0;
+
+		if (reported_gain_count<8)
+		{
+			reported_gain_count++;
+			error(_error_silent, "sound channel %d gain %f is outside 0-1; clamped", channel_index, properties->gain);
+		}
+		clamped_properties= *properties;
+		clamped_properties.gain= properties->gain>1.f ? 1.f : 0.f;
+		properties= &clamped_properties;
+	}
+#endif
+	gain= dsound_globals.pause_gain*properties->gain;
 
 	match_assert(
 		"c:\\halo\\SOURCE\\sound\\sound_dsound_xbox.c",
