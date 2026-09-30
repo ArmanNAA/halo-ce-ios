@@ -58,13 +58,44 @@ you delete the app.
 
 ## Controls
 
-- **Left stick** to move, **right stick** to look
-- **A** jump / select, **B** melee / back, **X** reload / use, **Y** switch weapons
-- **Arrow buttons** for menus
+- **Swipe on the right side of the screen to look around**, like other mobile
+  shooters. You can also keep your thumb on **FIRE** and drag it to aim while
+  you shoot. Aiming slows down when you zoom.
+- **Put your thumb anywhere on the left side to move.** The stick appears
+  under your thumb and follows it if you slide past the edge.
+- **A** jump / select, **B** melee / back, **X** reload / use, **Y** switch
+  weapons. The small colored letter on each button matches the menu prompts.
+- **Arrow buttons** (top left) for menus
 - **FIRE**, **GRENADE**, **CROUCH**, **ZOOM**, **LIGHT** (flashlight),
   **SWAP G** (switch grenades), and **PAUSE** each get their own button
 
-Tap **Hide controls** for a clean screen, and **Show controls** to bring them back.
+The phone vibrates with the game's rumble, and a connected controller rumbles
+too.
+
+### Customizing the controls
+
+Tap the sliders button in the top-right corner to edit the controls while you
+play:
+
+- Drag any button or stick to move it
+- Tap one to resize it, hide it, or pick a different icon. You can also use
+  text, or any image from Files as the icon.
+- Change look speed, invert look, opacity, vibration, and whether the move
+  stick follows your thumb
+- Turn on the old right look stick if you'd rather aim with a stick
+- **Reset Layout** (tap twice) puts everything back
+
+Your layout is saved in `controls.json` in the Halo: CE folder in Files, and
+any custom icons are saved in its `Controls` folder.
+
+Tap the eye button for a clean screen when you're using a controller, and tap
+it again to bring the controls back.
+
+### Going home
+
+One swipe up from the bottom edge leaves the game, like other apps. If your
+thumb keeps triggering it by accident, turn on **Swipe up twice to leave the
+game** in the control editor.
 
 ## Display settings
 

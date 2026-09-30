@@ -157,11 +157,31 @@ in-app graphics settings menu are not implemented yet.
 
 ### Touch and controller input
 
-The left stick moves and the right stick aims. The four arrows navigate menus.
-A selects/jumps; B returns/melees; X reloads/uses; Y changes weapons. Separate
-buttons provide fire, grenade, crouch, zoom, flashlight, grenade selection,
-and pause. Hold buttons for held actions. “Hide controls” leaves a small toggle
-so a connected hardware controller can be used with an unobstructed picture.
+The left of the screen is a floating move stick: it appears under the thumb
+and follows a thumb that slides past its edge. Dragging anywhere else aims, and
+so does dragging FIRE while it is held. Aim is sent as relative mouse motion
+that the game adds straight to the player's facing (`halo_linux_mouse_look`),
+so it has no stick dead zone or turn-rate cap and it slows down with zoom. The
+touch sticks offset the game's 9000/32767 stick dead zone, so a small push
+already moves. The four arrows navigate menus. A selects/jumps; B returns/melees;
+X reloads/uses; Y changes weapons. Separate buttons provide fire, grenade,
+crouch, zoom, flashlight, grenade selection, and pause; Back (scoreboard) and a
+right look stick are available but hidden by default.
+
+The sliders button opens an in-place editor (`host/host_touch_editor.m`). Each
+control can be moved, resized, hidden, or given an SF Symbol, text, or an image
+from Files as its icon, and look speed, invert look, opacity, vibration, and the
+floating stick can be changed. Everything is saved to `Documents/controls.json`;
+custom icons are downscaled PNGs in `Documents/Controls`. Game rumble plays on
+the Taptic Engine (`host/host_haptics.m`) and is forwarded to a hardware
+controller sharing player one. The eye button hides the controls so a connected
+hardware controller can be used with an unobstructed picture.
+
+The home indicator auto-hides and a single swipe up leaves the app, as in other
+apps (`SDL_HINT_IOS_HIDE_HOME_INDICATOR` = 1; SDL's default for a fullscreen
+window defers the gesture so it takes two swipes). The editor's "Swipe up twice
+to leave the game" option restores the deferred gesture.
+
 The first hardware controller shares player one with the on-screen controls.
 Developer console messages, frame counters, profiling text and the menu's build label are omitted
 from the game picture. Diagnostic log files remain available in Documents.
