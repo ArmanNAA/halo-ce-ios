@@ -264,7 +264,7 @@ static NSInteger speed_index=2, difficulty_index=1;
     }
     if(multiplayerButtons.count) {
         [stack addArrangedSubview:[self heading:@"Explore a multiplayer map"]];
-        [stack addArrangedSubview:[self label:@"Loads it as a solo level. Experimental: some may not start." style:UIFontTextStyleCaption1 alpha:.6]];
+        [stack addArrangedSubview:[self label:@"Loads it empty, as a solo level: no other players, and its weapons may not be laid out (All weapons fills your hands)." style:UIFontTextStyleCaption1 alpha:.6]];
         for(UIButton *button in multiplayerButtons) [stack addArrangedSubview:button];
     }
     return self;

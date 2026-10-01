@@ -183,8 +183,10 @@ bottom-left corner and are hidden during play.
 
 The editor's debug menu (`host/host_touch_debug.m`) toggles the build's cheat
 globals, runs one-shot cheats, sets the game speed and difficulty, and loads
-any campaign level found in `Documents/maps` (multiplayer maps load as solo
-levels, experimentally). Each choice is a console command: the host writes it
+any campaign level found in `Documents/maps`. Multiplayer maps load as solo
+levels; their starting locations all name multiplayer game types, which a game
+without a game engine rejects, so `find_best_starting_location_index` takes
+any of them when a solo game has none of its own. Each choice is a console command: the host writes it
 to guest memory and pushes an SDL user event carrying its guest address; the
 platform layer queues it (`platform_next_command`) and `console_update` runs it
 on the next frame as a typed command would be.
