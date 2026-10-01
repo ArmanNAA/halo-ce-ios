@@ -960,6 +960,100 @@ void virtual_keyboard_process(
 	return;
 }
 
+#ifdef HALO_LINUX
+/* ---------- the menu pointer (the desktop mouse, a tap on iOS)
+
+The keyboard was made for the d-pad: it keeps a selected cell of its grid
+(virtual_keyboard_key_layout) and A presses the key there. The pointer
+selects the key drawn under it (keyboard_rect, in the menus' 640x480) and
+a click presses it, as A would; a right click backs out as B does. */
+
+static short virtual_keyboard_key_at(
+	short x,
+	short y)
+{
+	short key_index;
+
+	for (key_index = 0; key_index < NUMBER_OF_VIRTUAL_KEYS; key_index++)
+	{
+		rectangle2d const *bounds = &keyboard_rect[key_index];
+
+		if (x >= bounds->x0 && x < bounds->x1 && y >= bounds->y0 && y < bounds->y1)
+			return key_index;
+	}
+
+	return NONE;
+}
+
+/* moves the selection to the first cell of the grid holding the key */
+static boolean virtual_keyboard_select_cell_of_key(
+	short key_index)
+{
+	short row;
+	short column;
+
+	for (row = 0; row < VIRTUAL_KEYBOARD_ROW_COUNT; row++)
+	{
+		for (column = 0; column < VIRTUAL_KEYBOARD_COLUMN_COUNT; column++)
+		{
+			if (virtual_keyboard_key_layout[row][column] == key_index)
+			{
+				virtual_keyboard_globals.row = row;
+				virtual_keyboard_globals.column = column;
+				return TRUE;
+			}
+		}
+	}
+
+	return FALSE;
+}
+
+void virtual_keyboard_pointer(
+	short x,
+	short y,
+	boolean moved,
+	short click_x,
+	short click_y,
+	long left_clicks,
+	long right_clicks)
+{
+	short key_index;
+
+	if (!virtual_keyboard_globals.active)
+		return;
+	if (right_clicks)
+	{
+		if (virtual_keyboard_cancel())
+		{
+			virtual_keyboard_globals.time_of_last_event = system_milliseconds();
+			virtual_keyboard_globals.last_event = _event_cancel;
+		}
+		return;
+	}
+	if (moved)
+	{
+		key_index = virtual_keyboard_key_at(x, y);
+		if (key_index != NONE && virtual_keyboard_select_cell_of_key(key_index))
+			virtual_keyboard_globals.last_event = NONE;
+	}
+	if (left_clicks)
+	{
+		key_index = virtual_keyboard_key_at(click_x, click_y);
+		if (key_index != NONE && virtual_keyboard_select_cell_of_key(key_index))
+		{
+			virtual_keyboard_globals.last_key = key_index;
+			if (virtual_keyboard_select())
+			{
+				virtual_keyboard_globals.time_of_last_event = system_milliseconds();
+				virtual_keyboard_globals.last_event = _event_key_select;
+			}
+		}
+	}
+
+	return;
+}
+#endif
+
 /* ---------- private code */
 
 static boolean virtual_keyboard_select(

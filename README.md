@@ -71,10 +71,10 @@ you delete the app.
 
 ### Menus
 
-Tap a menu item to pick it, and drag up or down to scroll lists, on the title
-screen, the pause menu and every other menu. While a menu is up, the gameplay
-buttons get out of the way and only **A**, **B** and the menu arrows stay on
-screen, in case you'd rather use them.
+Everything in the menus works by touch: tap an item to pick it, drag up or down
+to scroll lists, and tap with two fingers to go back. The name-entry keyboard
+works the same way: tap the letters. The buttons get out of the way in menus;
+tap the eye button while a menu is up to bring back A, B, X, Y and the arrows.
 
 ### Customizing the controls
 
@@ -84,12 +84,18 @@ play:
 - Drag any button or stick to move it
 - Tap one to resize it, hide it, or pick a different icon. Each button offers
   Halo-style icons, standard iOS icons, text, or any image from Files.
-- **Button style: Halo** gives every button HUD-blue colors and Halo-style
-  icons in one tap
+- **Button style** switches between the Halo style (HUD-blue buttons and
+  Halo-style icons, the default) and plain white
+- **Tap crouch to toggle it** (on by default) holds crouch until your next tap
+- Every button turns the view when you drag it, like FIRE; switch that off
+  per button with **Drag to aim while held**
 - Change look speed, invert look, opacity, vibration, and whether the move
   stick follows your thumb
 - Turn on the old right look stick if you'd rather aim with a stick
 - **Reset Layout** (tap twice) puts everything back
+- **Show Debug Menu**, at the end, turns cheats on and off (god mode, infinite
+  ammo, bottomless clip, super jump and more), gives all weapons or vehicles,
+  changes the game speed and difficulty, and loads any level
 
 Your layout is saved in `controls.json` in the Halo: CE folder in Files, and
 any custom icons are saved in its `Controls` folder.

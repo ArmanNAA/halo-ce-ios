@@ -34,6 +34,17 @@ static struct platform_ui_pointer ui_pointer;
 static float ui_pointer_wheel;
 static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
 
+#ifdef HALO_ILP32
+/* Console commands from the iOS debug menu (port/ios/host/host_touch_debug.m):
+the host pushes this event with the guest address of the command's text as its
+code, and the game runs the queued commands from console_update. */
+#define HALO_IOS_EVENT_COMMAND (SDL_EVENT_USER + 0x48)
+#define PLATFORM_COMMAND_QUEUE_SIZE 16
+#define PLATFORM_COMMAND_LENGTH 256
+static char command_queue[PLATFORM_COMMAND_QUEUE_SIZE][PLATFORM_COMMAND_LENGTH];
+static unsigned long command_head, command_count;
+#endif
+
 /* debug keyboard queue */
 #define KEYSTROKE_QUEUE_SIZE 64
 static struct platform_keystroke keystroke_queue[KEYSTROKE_QUEUE_SIZE];
@@ -503,6 +514,22 @@ void platform_pump_events(void)
 		case SDL_EVENT_GAMEPAD_ADDED:
 			SDL_OpenGamepad(event.gdevice.which);
 			break;
+#ifdef HALO_ILP32
+		case HALO_IOS_EVENT_COMMAND:
+		{
+			const char *text = (const char *)(unsigned long)(unsigned int)event.user.code;
+
+			if (text && command_count < PLATFORM_COMMAND_QUEUE_SIZE)
+			{
+				char *slot = command_queue[(command_head + command_count) % PLATFORM_COMMAND_QUEUE_SIZE];
+
+				strncpy(slot, text, PLATFORM_COMMAND_LENGTH - 1);
+				slot[PLATFORM_COMMAND_LENGTH - 1] = '\0';
+				command_count++;
+			}
+			break;
+		}
+#endif
 		default:
 			break;
 		}
@@ -572,6 +599,29 @@ void platform_video_window_size(int *width, int *height)
 #else
 	SDL_GetWindowSize(platform_window, width, height);
 #endif
+}
+
+BOOL platform_next_command(char *buffer, unsigned long size)
+{
+	BOOL found = FALSE;
+
+	if (!size)
+		return FALSE;
+#ifdef HALO_ILP32
+	pthread_mutex_lock(&input_lock);
+	if (command_count)
+	{
+		strncpy(buffer, command_queue[command_head], size - 1);
+		buffer[size - 1] = '\0';
+		command_head = (command_head + 1) % PLATFORM_COMMAND_QUEUE_SIZE;
+		command_count--;
+		found = TRUE;
+	}
+	pthread_mutex_unlock(&input_lock);
+#else
+	(void)buffer;
+#endif
+	return found;
 }
 
 void platform_input_read(struct platform_input_state *state, BOOL consume_motion)

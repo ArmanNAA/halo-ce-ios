@@ -86,6 +86,8 @@ UIImage *halo_icon_image(NSString *name, CGFloat side);
 @property(nonatomic) BOOL haptics;
 @property(nonatomic) BOOL showNames;
 @property(nonatomic) BOOL haloStyle;         /* HUD-blue buttons */
+@property(nonatomic) BOOL menuButtons;       /* A, B, X, Y and the arrows show in menus */
+@property(nonatomic) BOOL toggleCrouch;      /* a tap on crouch holds it until the next tap */
 @property(nonatomic, readonly) NSArray<HaloControlState *> *controls;
 + (instancetype)shared;
 - (void)save;
@@ -115,6 +117,21 @@ UIImage *halo_icon_image(NSString *name, CGFloat side);
 @interface HaloControlEditor : UIView
 - (instancetype)initWithControls:(HaloControls *)controls;
 @end
+
+/* The debug menu (host_touch_debug.m): cheats, game speed, difficulty and
+   loading any map, shown in place of the editor's panel. */
+@interface HaloDebugMenu : UIView
+@property(nonatomic, copy) void (^onClose)(void);   /* back to the control editor */
+@property(nonatomic, copy) void (^onPlay)(void);    /* a map is loading: leave the editor */
+@end
+
+/* Runs a console command in the game, from its next frame
+   (platform_next_command, port/linux/src/sdl_platform.c). */
+void host_ios_run_command(const char *command);
+
+/* the HUD blue of the Halo style */
+UIColor *halo_hud_color(CGFloat alpha);
+UIColor *halo_hud_fill(CGFloat alpha);
 
 void host_ios_haptics_rumble(float intensity);
 void host_ios_haptics_tap(void);

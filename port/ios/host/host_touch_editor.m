@@ -42,6 +42,7 @@ static UIColor *accent_color(void) {
 @property(nonatomic, strong) UILabel *opacityValue;
 @property(nonatomic, strong) UIButton *resetButton;
 @property(nonatomic, strong) UISegmentedControl *styleControl;
+@property(nonatomic, strong) HaloDebugMenu *debugMenu;
 @property(nonatomic) BOOL resetArmed;
 @end
 
@@ -292,6 +293,14 @@ static UIColor *accent_color(void) {
         value:self.opacityValue]];
     [stack addArrangedSubview:[self rowWithTitle:@"Vibration" control:[self switchOn:settings.haptics action:@selector(hapticsChanged:)]]];
     [stack addArrangedSubview:[self rowWithTitle:@"Show button names" control:[self switchOn:settings.showNames action:@selector(namesChanged:)]]];
+    [stack addArrangedSubview:[self rowWithTitle:@"Tap crouch to toggle it"
+        control:[self switchOn:settings.toggleCrouch action:@selector(crouchChanged:)]]];
+    [stack addArrangedSubview:[self rowWithTitle:@"Buttons in menus"
+        control:[self switchOn:settings.menuButtons action:@selector(menuButtonsChanged:)]]];
+    UILabel *menuHint=[self labelWithText:@"Menus work by touch: tap to pick, drag to scroll, tap with two fingers to go back. This brings back A, B, X, Y and the arrows there too, as does the eye button while a menu is up."
+        style:UIFontTextStyleCaption1];
+    menuHint.textColor=[UIColor colorWithWhite:1 alpha:.6];
+    [stack addArrangedSubview:menuHint];
     [stack addArrangedSubview:[self separator]];
     self.resetButton=[UIButton buttonWithType:UIButtonTypeSystem];
     [self.resetButton setTitle:@"Reset Layout" forState:UIControlStateNormal];
@@ -299,6 +308,18 @@ static UIColor *accent_color(void) {
     self.resetButton.contentHorizontalAlignment=UIControlContentHorizontalAlignmentLeading;
     [self.resetButton addTarget:self action:@selector(resetLayout) forControlEvents:UIControlEventTouchUpInside];
     [stack addArrangedSubview:self.resetButton];
+    [stack addArrangedSubview:[self separator]];
+    UIButton *debug=[UIButton buttonWithType:UIButtonTypeSystem];
+    [debug setTitle:@"Show Debug Menu" forState:UIControlStateNormal];
+    debug.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+    debug.tintColor=accent_color();
+    debug.contentHorizontalAlignment=UIControlContentHorizontalAlignmentLeading;
+    [debug addTarget:self action:@selector(showDebugMenu) forControlEvents:UIControlEventTouchUpInside];
+    [stack addArrangedSubview:debug];
+    UILabel *debugHint=[self labelWithText:@"Cheats, game speed, difficulty and loading any level."
+        style:UIFontTextStyleCaption1];
+    debugHint.textColor=[UIColor colorWithWhite:1 alpha:.6];
+    [stack addArrangedSubview:debugHint];
     [self updateValueLabels];
 }
 
@@ -327,6 +348,10 @@ static UIColor *accent_color(void) {
     center.x=MIN(MAX(center.x,CGRectGetMinX(area)+width/2),MAX(CGRectGetMinX(area)+width/2,CGRectGetMaxX(area)-width/2));
     center.y=MIN(MAX(center.y,CGRectGetMinY(area)+height/2),MAX(CGRectGetMinY(area)+height/2,CGRectGetMaxY(area)-height/2));
     self.panel.center=center;
+    if(self.debugMenu) {
+        self.debugMenu.bounds=self.panel.bounds;
+        self.debugMenu.center=center;
+    }
     [self updateRing];
 }
 - (void)movePanel:(UIPanGestureRecognizer *)pan {
@@ -636,6 +661,26 @@ static UIColor *accent_color(void) {
     [self.controls applySettings];
     [self selectControl:-1];
     [self saveSettings];
+}
+- (void)crouchChanged:(UISwitch *)toggle {HaloTouchSettings.shared.toggleCrouch=toggle.on;[self saveSettings];}
+- (void)menuButtonsChanged:(UISwitch *)toggle {HaloTouchSettings.shared.menuButtons=toggle.on;[self saveSettings];}
+- (void)showDebugMenu {
+    if(self.debugMenu) return;
+    HaloDebugMenu *menu=[[HaloDebugMenu alloc] initWithFrame:self.panel.frame];
+    __weak HaloControlEditor *weakSelf=self;
+    menu.onClose=^{
+        HaloControlEditor *editor=weakSelf;
+        [editor.debugMenu removeFromSuperview];
+        editor.debugMenu=nil;
+        editor.panel.hidden=NO;
+    };
+    menu.onPlay=^{
+        [weakSelf.controls finishEditing];
+    };
+    self.debugMenu=menu;
+    self.panel.hidden=YES;
+    [self addSubview:menu];
+    [self setNeedsLayout];
 }
 - (void)done {
     [self.controls finishEditing];

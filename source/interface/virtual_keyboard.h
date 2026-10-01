@@ -38,6 +38,17 @@ void virtual_keyboard_process(
 	void);
 void virtual_keyboard_render(
 	void);
+#ifdef HALO_LINUX
+/* what the menu pointer did this frame, in the menus' 640x480 (ui_widget.c) */
+void virtual_keyboard_pointer(
+	short x,
+	short y,
+	boolean moved,
+	short click_x,
+	short click_y,
+	long left_clicks,
+	long right_clicks);
+#endif
 
 /* ---------- globals */
 

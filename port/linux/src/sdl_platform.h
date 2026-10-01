@@ -64,5 +64,8 @@ void platform_ui_pointer_set_active(BOOL active);
 BOOL platform_ui_pointer_read(struct platform_ui_pointer *pointer);
 void platform_video_window_size(int *width, int *height);
 BOOL platform_next_keystroke(struct platform_keystroke *keystroke);
+/* the next console command from the iOS debug menu, if any; the game runs them
+from console_update */
+BOOL platform_next_command(char *buffer, unsigned long size);
 
 #endif
