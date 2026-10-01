@@ -374,6 +374,21 @@ boolean console_update(
 
 	short i;
 
+#ifdef HALO_LINUX
+	{
+		/* commands from the iOS debug menu (port/linux/src/sdl_platform.c)
+		run as typed ones do */
+		extern int platform_next_command(char *buffer, unsigned long size);
+		char command[256];
+
+		while (platform_next_command(command, sizeof(command)))
+		{
+			error(_error_log, "debug menu: %s", command);
+			hs_compile_and_evaluate(command);
+		}
+	}
+#endif
+
 	if (console_globals.active)
 	{
 		for (i = 0; i < console_globals.input_state.key_count; i++)

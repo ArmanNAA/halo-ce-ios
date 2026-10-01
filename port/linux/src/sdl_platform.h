@@ -49,11 +49,11 @@ void platform_mouse_capture(BOOL capture);
 void platform_pump_events(void);
 /* a snapshot of the input state; consume_motion resets the mouse deltas */
 void platform_input_read(struct platform_input_state *state, BOOL consume_motion);
-#ifndef HALO_ILP32
-/* the pointer in the menus (d3d8_gl.c, halo_ui_pointer_update) */
+/* the pointer in the menus (d3d8_gl.c, halo_ui_pointer_update); on iOS it
+is driven by taps on the touch controls (port/ios/host/host_touch.m) */
 struct platform_ui_pointer
 {
-	/* in window coordinates, as SDL reports them */
+	/* in window coordinates, as SDL reports them (drawable pixels on iOS) */
 	float x, y;
 	float click_x, click_y;
 	BOOL moved;
@@ -63,7 +63,9 @@ struct platform_ui_pointer
 void platform_ui_pointer_set_active(BOOL active);
 BOOL platform_ui_pointer_read(struct platform_ui_pointer *pointer);
 void platform_video_window_size(int *width, int *height);
-#endif
 BOOL platform_next_keystroke(struct platform_keystroke *keystroke);
+/* the next console command from the iOS debug menu, if any; the game runs them
+from console_update */
+BOOL platform_next_command(char *buffer, unsigned long size);
 
 #endif

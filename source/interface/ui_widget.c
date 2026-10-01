@@ -5595,10 +5595,14 @@ static void ui_widgets_process_mouse(
 	struct halo_ui_pointer pointer;
 	struct ui_mouse_target *target;
 	short controller_index = 0;
+	boolean pointer_active = halo_ui_pointer_update(ui_mouse_menus_active(), &pointer);
 
-	if (!halo_ui_pointer_update(ui_mouse_menus_active(), &pointer) ||
-		virtual_keyboard_active())
+	if (!pointer_active || virtual_keyboard_active())
 	{
+		/* the on-screen keyboard takes the pointer itself */
+		if (pointer_active)
+			virtual_keyboard_pointer(pointer.x, pointer.y, pointer.moved, pointer.click_x, pointer.click_y,
+				pointer.left_clicks, pointer.right_clicks);
 		ui_mouse_press_count = 0;
 		ui_mouse_hover_pending = FALSE;
 		ui_mouse_click_pending = FALSE;

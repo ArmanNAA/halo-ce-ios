@@ -58,13 +58,54 @@ you delete the app.
 
 ## Controls
 
-- **Left stick** to move, **right stick** to look
-- **A** jump / select, **B** melee / back, **X** reload / use, **Y** switch weapons
-- **Arrow buttons** for menus
-- **FIRE**, **GRENADE**, **CROUCH**, **ZOOM**, **LIGHT** (flashlight),
-  **SWAP G** (switch grenades), and **PAUSE** each get their own button
+- **Swipe on the right side of the screen to look around**, like other mobile
+  shooters. You can also keep your thumb on **FIRE** and drag it to aim while
+  you shoot. Aiming slows down when you zoom.
+- **Put your thumb anywhere on the left side to move.** The stick appears
+  under your thumb and follows it if you slide past the edge.
+- The action buttons run down the right edge: **grenade**, **Y** switch weapon,
+  **zoom**, **X** reload / use, a big **FIRE**, then **A** jump, **crouch** and
+  **B** melee along the bottom. **LIGHT** (flashlight), **SWAP G** (switch
+  grenades) and **PAUSE** sit near the top-right corner. The small colored
+  letters match the game's A, B, X and Y prompts.
 
-Tap **Hide controls** for a clean screen, and **Show controls** to bring them back.
+### Menus
+
+Everything in the menus works by touch: tap an item to pick it, drag up or down
+to scroll lists, and tap with two fingers to go back. The name-entry keyboard
+works the same way: tap the letters. The buttons get out of the way in menus;
+tap the eye button while a menu is up to bring back A, B, X, Y and the arrows.
+
+### Customizing the controls
+
+Tap the sliders button in the top-right corner to edit the controls while you
+play:
+
+- Drag any button or stick to move it
+- Tap one to resize it, hide it, or pick a different icon. Each button offers
+  Halo-style icons, standard iOS icons, text, or any image from Files.
+- **Button style** switches between the Halo style (HUD-blue buttons and
+  Halo-style icons, the default) and plain white
+- **Tap crouch to toggle it** (on by default) holds crouch until your next tap
+- Every button turns the view when you drag it, like FIRE; switch that off
+  per button with **Drag to aim while held**
+- Change look speed, invert look, opacity, vibration, and whether the move
+  stick follows your thumb
+- Turn on the old right look stick if you'd rather aim with a stick
+- **Reset Layout** (tap twice) puts everything back
+- **Show Debug Menu**, at the end, turns cheats on and off (god mode, infinite
+  ammo, bottomless clip, super jump and more), gives all weapons or vehicles,
+  changes the game speed and difficulty, and loads any level
+
+Your layout is saved in `controls.json` in the Halo: CE folder in Files, and
+any custom icons are saved in its `Controls` folder.
+
+The phone vibrates with the game's rumble, and a connected controller rumbles
+too. Tap the eye button for a clean screen when you're using a controller, and
+tap it again to bring the controls back.
+
+The game turns with your phone between both landscape orientations, and one
+swipe up from the bottom edge goes home, like other apps.
 
 ## Display settings
 

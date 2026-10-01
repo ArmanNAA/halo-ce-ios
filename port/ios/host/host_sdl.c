@@ -130,6 +130,10 @@ int host_sdl_set_relative_mouse(uint32_t window, int enabled)
 {
 	SDL_Window *object = handle_get(window, _handle_window);
 
+	/* The game frees the mouse while a menu is up and captures it to aim
+	(platform_ui_pointer_set_active): the touch controls switch between
+	picking menu items and play with it. */
+	host_ios_touch_menu_mode(!enabled);
 	return object ? SDL_SetWindowRelativeMouseMode(object, enabled != 0) : 0;
 }
 

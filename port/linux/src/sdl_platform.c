@@ -29,12 +29,21 @@ static struct platform_input_state input_state;
 /* keys pressed since the last read, so a press and release between two
 reads still counts as a press (input injected on iOS, or a slow frame) */
 static unsigned char keys_pressed[SDL_SCANCODE_COUNT];
-#ifndef HALO_ILP32
 /* the menus' pointer (platform_ui_pointer_set_active), under input_lock */
 static struct platform_ui_pointer ui_pointer;
 static float ui_pointer_wheel;
-#endif
 static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
+
+#ifdef HALO_ILP32
+/* Console commands from the iOS debug menu (port/ios/host/host_touch_debug.m):
+the host pushes this event with the guest address of the command's text as its
+code, and the game runs the queued commands from console_update. */
+#define HALO_IOS_EVENT_COMMAND (SDL_EVENT_USER + 0x48)
+#define PLATFORM_COMMAND_QUEUE_SIZE 16
+#define PLATFORM_COMMAND_LENGTH 256
+static char command_queue[PLATFORM_COMMAND_QUEUE_SIZE][PLATFORM_COMMAND_LENGTH];
+static unsigned long command_head, command_count;
+#endif
 
 /* debug keyboard queue */
 #define KEYSTROKE_QUEUE_SIZE 64
@@ -436,8 +445,8 @@ void platform_pump_events(void)
 #endif
 			break;
 		case SDL_EVENT_MOUSE_MOTION:
-#ifndef HALO_ILP32
-			/* in the menus the mouse moves the pointer, not the view */
+			/* in the menus the mouse (on iOS, a tap) moves the pointer, not
+			the view */
 			if (input_state.ui_pointer)
 			{
 				ui_pointer.x = event.motion.x;
@@ -445,13 +454,11 @@ void platform_pump_events(void)
 				ui_pointer.moved = TRUE;
 				break;
 			}
-#endif
 			input_state.mouse_dx += event.motion.xrel;
 			input_state.mouse_dy += event.motion.yrel;
 			break;
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP:
-#ifndef HALO_ILP32
 			/* clicks in the menus go to the pointer; a button held down
 			when the menu closes stays up until pressed again, so the click
 			that resumes the game does not also fire */
@@ -469,12 +476,10 @@ void platform_pump_events(void)
 				}
 				break;
 			}
-#endif
 			if (event.button.button < PLATFORM_MOUSE_BUTTON_COUNT)
 				input_state.mouse_buttons[event.button.button] = event.button.down;
 			break;
 		case SDL_EVENT_MOUSE_WHEEL:
-#ifndef HALO_ILP32
 			if (input_state.ui_pointer)
 			{
 				/* whole notches: smooth-scrolling wheels send fractions */
@@ -491,7 +496,6 @@ void platform_pump_events(void)
 				}
 				break;
 			}
-#endif
 			input_state.mouse_wheel += event.wheel.y;
 			break;
 		case SDL_EVENT_WINDOW_FOCUS_LOST:
@@ -510,6 +514,22 @@ void platform_pump_events(void)
 		case SDL_EVENT_GAMEPAD_ADDED:
 			SDL_OpenGamepad(event.gdevice.which);
 			break;
+#ifdef HALO_ILP32
+		case HALO_IOS_EVENT_COMMAND:
+		{
+			const char *text = (const char *)(unsigned long)(unsigned int)event.user.code;
+
+			if (text && command_count < PLATFORM_COMMAND_QUEUE_SIZE)
+			{
+				char *slot = command_queue[(command_head + command_count) % PLATFORM_COMMAND_QUEUE_SIZE];
+
+				strncpy(slot, text, PLATFORM_COMMAND_LENGTH - 1);
+				slot[PLATFORM_COMMAND_LENGTH - 1] = '\0';
+				command_count++;
+			}
+			break;
+		}
+#endif
 		default:
 			break;
 		}
@@ -519,7 +539,6 @@ void platform_pump_events(void)
 	platform_invite_clipboard(look_at_clipboard);
 }
 
-#ifndef HALO_ILP32
 /* ---------- the menus' pointer */
 
 /* While a menu is up the mouse is released, its pointer shows (centered when
@@ -538,13 +557,17 @@ void platform_ui_pointer_set_active(BOOL active)
 	input_state.mouse_wheel = 0.0f;
 	memset(input_state.mouse_buttons, 0, sizeof(input_state.mouse_buttons));
 	pthread_mutex_unlock(&input_lock);
+	/* on iOS this also tells the touch controls whether a menu is up
+	(host_sdl_set_relative_mouse) */
 	platform_mouse_capture(!active && !input_state.mouse_released);
 	if (active)
 	{
 		int width, height;
 
-		SDL_GetWindowSize(platform_window, &width, &height);
+		platform_video_window_size(&width, &height);
+#ifndef HALO_ILP32
 		SDL_WarpMouseInWindow(platform_window, width * 0.5f, height * 0.5f);
+#endif
 		pthread_mutex_lock(&input_lock);
 		ui_pointer.x = width * 0.5f;
 		ui_pointer.y = height * 0.5f;
@@ -570,10 +593,37 @@ BOOL platform_ui_pointer_read(struct platform_ui_pointer *pointer)
 
 void platform_video_window_size(int *width, int *height)
 {
+#ifdef HALO_ILP32
+	/* the iOS touch controls report the pointer in drawable pixels */
+	SDL_GetWindowSizeInPixels(platform_window, width, height);
+#else
 	SDL_GetWindowSize(platform_window, width, height);
+#endif
 }
 
+BOOL platform_next_command(char *buffer, unsigned long size)
+{
+	BOOL found = FALSE;
+
+	if (!size)
+		return FALSE;
+#ifdef HALO_ILP32
+	pthread_mutex_lock(&input_lock);
+	if (command_count)
+	{
+		strncpy(buffer, command_queue[command_head], size - 1);
+		buffer[size - 1] = '\0';
+		command_head = (command_head + 1) % PLATFORM_COMMAND_QUEUE_SIZE;
+		command_count--;
+		found = TRUE;
+	}
+	pthread_mutex_unlock(&input_lock);
+#else
+	(void)buffer;
 #endif
+	return found;
+}
+
 void platform_input_read(struct platform_input_state *state, BOOL consume_motion)
 {
 	pthread_mutex_lock(&input_lock);

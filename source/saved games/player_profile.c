@@ -424,6 +424,9 @@ long player_profile_new(
 			ustrncpy(profile->player_name, name, MAXIMUM_PLAYER_PROFILE_NAME_LENGTH-1);
 			profile->player_name[MAXIMUM_PLAYER_PROFILE_NAME_LENGTH-1] = 0;
 
+#ifndef HALO_IOS
+			/* The iOS port starts new profiles at the first level, as the
+			retail game does; its debug menu loads any level instead. */
 			error(_error_silent, "### DEBUG unlocking all solo levels for newly created profile");
 
 			for (level = 0; level < NUMBER_OF_SINGLE_PLAYER_LEVELS; level++)
@@ -437,6 +440,9 @@ long player_profile_new(
 				}
 				while (difficulty < NUMBER_OF_GAME_DIFFICULTY_LEVELS);
 			}
+#else
+			(void)level;
+#endif
 
 			saved_game_file_generate_checksum(&block.profile, sizeof(block.profile),
 				&block.checksum);

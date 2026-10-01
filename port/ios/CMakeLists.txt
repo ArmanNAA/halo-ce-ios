@@ -11,7 +11,7 @@ set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory("${ROOT}/build/third_party/SDL3" sdl3 EXCLUDE_FROM_ALL)
 add_executable(HaloCE MACOSX_BUNDLE
     Assets.xcassets "${ROOT}/port/runtime/xiso.c"
-    host/host_main.m host/host_import.m host/host_orientation.m host/host_touch.m host/host_memory.c host/host_loader.c host/host_syscall.c host/host_gl.c host/guest_call.S
+    host/host_main.m host/host_import.m host/host_orientation.m host/host_touch.m host/host_touch_editor.m host/host_touch_icons.m host/host_touch_debug.m host/host_haptics.m host/host_memory.c host/host_loader.c host/host_syscall.c host/host_gl.c host/guest_call.S
     host/host_thread.c host/host_sdl.c
     "${ROOT}/port/linux/src/posix_files.c" host/posix_net.c
     "${ROOT}/build/ios/host/bridges.c" "${ROOT}/build/ios/embedded/guest_image.S")
@@ -21,7 +21,7 @@ target_include_directories(HaloCE PRIVATE host "${ROOT}/port/runtime" "${ROOT}/p
 target_compile_definitions(HaloCE PRIVATE HALO_IOS=1 st_mtim=st_mtimespec st_atim=st_atimespec st_ctim=st_ctimespec)
 target_compile_options(HaloCE PRIVATE -Wno-deprecated-declarations)
 target_compile_options(HaloCE PRIVATE "$<$<COMPILE_LANGUAGE:OBJC>:-fobjc-arc>")
-target_link_libraries(HaloCE PRIVATE SDL3::SDL3-static "-framework Foundation" "-framework UIKit" "-framework UniformTypeIdentifiers" "-framework OpenGLES")
+target_link_libraries(HaloCE PRIVATE SDL3::SDL3-static "-framework Foundation" "-framework UIKit" "-framework UniformTypeIdentifiers" "-framework CoreHaptics" "-framework OpenGLES")
 set_source_files_properties(Assets.xcassets PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 file(GLOB HALO_LICENSES "${ROOT}/build/ios/licenses/*.txt")
 target_sources(HaloCE PRIVATE ${HALO_LICENSES})

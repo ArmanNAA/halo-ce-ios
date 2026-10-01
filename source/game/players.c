@@ -1213,6 +1213,20 @@ long find_best_starting_location_index(
 		}
 	}
 
+#ifdef HALO_LINUX
+	/* A multiplayer map loaded as a solo level (the iOS debug menu) has no
+	starting location a game without a game engine accepts: each names
+	multiplayer game types (match_game_type, game_engine.c), so none rates
+	above zero and the player never spawns. Take any of them instead.
+	Campaign levels always have one of their own, so they are unchanged. */
+	if (best_starting_location_index == NONE && !game_engine_running() && starting_location_count > 0)
+	{
+		best_starting_location_index = (short)(real_random_range(0.0f, 1.0f) * starting_location_count);
+		if (best_starting_location_index >= starting_location_count)
+			best_starting_location_index = starting_location_count - 1;
+	}
+#endif
+
 	return best_starting_location_index;
 }
 
