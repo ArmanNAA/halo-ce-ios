@@ -10,7 +10,8 @@
 enum {
     icon_tile_text=1,
     icon_tile_custom=2,
-    icon_tile_symbol=100, /* + the symbol's index */
+    icon_tile_symbol=100, /* + the SF Symbol's index */
+    icon_tile_halo=300,   /* + the Halo-style icon's index */
 };
 
 static UIColor *accent_color(void) {
@@ -40,6 +41,7 @@ static UIColor *accent_color(void) {
 @property(nonatomic, strong) UILabel *sensitivityValue;
 @property(nonatomic, strong) UILabel *opacityValue;
 @property(nonatomic, strong) UIButton *resetButton;
+@property(nonatomic, strong) UISegmentedControl *styleControl;
 @property(nonatomic) BOOL resetArmed;
 @end
 
@@ -260,10 +262,20 @@ static UIColor *accent_color(void) {
 
     /* Everything else */
     [stack addArrangedSubview:[self separator]];
+    self.styleControl=[[UISegmentedControl alloc] initWithItems:@[@"Standard",@"Halo"]];
+    self.styleControl.selectedSegmentIndex=settings.haloStyle?1:0;
+    self.styleControl.selectedSegmentTintColor=accent_color();
+    [self.styleControl addTarget:self action:@selector(styleChanged:) forControlEvents:UIControlEventValueChanged];
+    [stack addArrangedSubview:[self rowWithTitle:@"Button style" control:self.styleControl]];
+    UILabel *styleHint=[self labelWithText:@"Halo gives every button HUD-blue colors and Halo-style icons. Your own images stay."
+        style:UIFontTextStyleCaption1];
+    styleHint.textColor=[UIColor colorWithWhite:1 alpha:.6];
+    [stack addArrangedSubview:styleHint];
+    [stack addArrangedSubview:[self separator]];
     UILabel *feel=[self labelWithText:@"Aiming and feel" style:UIFontTextStyleSubheadline];
     feel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
     [stack addArrangedSubview:feel];
-    UILabel *aimHint=[self labelWithText:@"Swipe anywhere on the right side to look around, or drag FIRE while shooting."
+    UILabel *aimHint=[self labelWithText:@"Swipe anywhere on the right side to look around, or drag FIRE while shooting. In menus, tap an item to pick it and drag to scroll."
         style:UIFontTextStyleFootnote];
     aimHint.textColor=[UIColor colorWithWhite:1 alpha:.7];
     [stack addArrangedSubview:aimHint];
@@ -280,12 +292,6 @@ static UIColor *accent_color(void) {
         value:self.opacityValue]];
     [stack addArrangedSubview:[self rowWithTitle:@"Vibration" control:[self switchOn:settings.haptics action:@selector(hapticsChanged:)]]];
     [stack addArrangedSubview:[self rowWithTitle:@"Show button names" control:[self switchOn:settings.showNames action:@selector(namesChanged:)]]];
-    [stack addArrangedSubview:[self rowWithTitle:@"Swipe up twice to leave the game"
-        control:[self switchOn:settings.protectExit action:@selector(exitChanged:)]]];
-    UILabel *exitHint=[self labelWithText:@"Off: one swipe up from the bottom edge goes home, like other apps. On: the first swipe only shows the home bar, so a thumb near the edge can't close the game."
-        style:UIFontTextStyleCaption1];
-    exitHint.textColor=[UIColor colorWithWhite:1 alpha:.6];
-    [stack addArrangedSubview:exitHint];
     [stack addArrangedSubview:[self separator]];
     self.resetButton=[UIButton buttonWithType:UIButtonTypeSystem];
     [self.resetButton setTitle:@"Reset Layout" forState:UIControlStateNormal];
@@ -453,16 +459,27 @@ static UIColor *accent_color(void) {
     if(self.selected<0 || halo_control_specs[self.selected].kind==HaloControlKindStick) return;
     HaloTouchSettings *settings=HaloTouchSettings.shared;
     NSString *current=settings.controls[self.selected].icon;
-    NSArray<NSString *> *icons=halo_control_icons(self.selected);
-    UIImageSymbolConfiguration *configuration=[UIImageSymbolConfiguration configurationWithPointSize:18 weight:UIImageSymbolWeightSemibold];
-    for(NSUInteger i=0;i<icons.count;i++) {
-        UIImage *image=[UIImage systemImageNamed:icons[i] withConfiguration:configuration];
+    /* tiles are drawn as a 50-point button's icon would be */
+    const CGFloat tile_diameter=50;
+    NSArray<NSString *> *halo=halo_control_halo_icons(self.selected);
+    for(NSUInteger i=0;i<halo.count;i++) {
+        NSString *icon=[@"halo:" stringByAppendingString:halo[i]];
+        UIImage *image=[settings imageForIcon:icon control:self.selected diameter:tile_diameter];
         if(!image) continue;
-        BOOL selected=[current isEqualToString:[@"sf:" stringByAppendingString:icons[i]]];
-        [self.iconRow addArrangedSubview:[self iconTile:icon_tile_symbol+(NSInteger)i image:image title:nil selected:selected]];
+        [self.iconRow addArrangedSubview:[self iconTile:icon_tile_halo+(NSInteger)i image:image title:nil
+            selected:[current isEqualToString:icon]]];
+    }
+    NSArray<NSString *> *icons=halo_control_icons(self.selected);
+    for(NSUInteger i=0;i<icons.count;i++) {
+        NSString *icon=[@"sf:" stringByAppendingString:icons[i]];
+        UIImage *image=[settings imageForIcon:icon control:self.selected diameter:tile_diameter];
+        if(!image) continue;
+        [self.iconRow addArrangedSubview:[self iconTile:icon_tile_symbol+(NSInteger)i image:image title:nil
+            selected:[current isEqualToString:icon]]];
     }
     [self.iconRow addArrangedSubview:[self iconTile:icon_tile_text image:nil
         title:@(halo_control_specs[self.selected].text) selected:[current isEqualToString:@"text"]]];
+    UIImageSymbolConfiguration *configuration=[UIImageSymbolConfiguration configurationWithPointSize:18 weight:UIImageSymbolWeightSemibold];
     UIImage *custom=[UIImage imageWithContentsOfFile:[settings customIconPath:self.selected]];
     UIImage *photo=custom?[custom imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal]
         :[UIImage systemImageNamed:@"photo.badge.plus" withConfiguration:configuration];
@@ -478,7 +495,11 @@ static UIColor *accent_color(void) {
 }
 - (void)iconTapped:(UIButton *)tile {
     if(self.selected<0) return;
-    if(tile.tag>=icon_tile_symbol) {
+    if(tile.tag>=icon_tile_halo) {
+        NSArray<NSString *> *icons=halo_control_halo_icons(self.selected);
+        NSInteger index=tile.tag-icon_tile_halo;
+        if(index<(NSInteger)icons.count) [self setIcon:[@"halo:" stringByAppendingString:icons[(NSUInteger)index]]];
+    } else if(tile.tag>=icon_tile_symbol) {
         NSArray<NSString *> *icons=halo_control_icons(self.selected);
         NSInteger index=tile.tag-icon_tile_symbol;
         if(index<(NSInteger)icons.count) [self setIcon:[@"sf:" stringByAppendingString:icons[(NSUInteger)index]]];
@@ -591,9 +612,10 @@ static UIColor *accent_color(void) {
     [self.controls applySettings];
     [self saveSettings];
 }
-- (void)exitChanged:(UISwitch *)toggle {
-    HaloTouchSettings.shared.protectExit=toggle.on;
-    host_ios_apply_exit_gesture();
+- (void)styleChanged:(UISegmentedControl *)control {
+    [HaloTouchSettings.shared applyStyle:control.selectedSegmentIndex==1];
+    [self.controls applySettings];
+    [self rebuildIcons];
     [self saveSettings];
 }
 - (void)resetLayout {
@@ -609,6 +631,7 @@ static UIColor *accent_color(void) {
     }
     self.resetArmed=NO;
     [self.resetButton setTitle:@"Reset Layout" forState:UIControlStateNormal];
+    /* positions, sizes and icons go back to the current style's defaults */
     [HaloTouchSettings.shared resetLayout];
     [self.controls applySettings];
     [self selectControl:-1];

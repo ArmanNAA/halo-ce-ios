@@ -7,9 +7,16 @@
    adds straight to the player's facing (halo_linux_mouse_look in
    port/linux/src/xinput_sdl.c), so it has no stick dead zone, turn-rate cap or
    ramp-up, and it slows down with the zoom level. The left of the screen is a
-   floating move stick. Every control can be moved, resized, hidden and given
-   another icon in the editor (host_touch_editor.m); the layout and settings
-   are kept in Documents/controls.json. */
+   floating move stick.
+
+   While a menu is up the game frees its mouse (platform_ui_pointer_set_active,
+   which reaches host_ios_touch_menu_mode). Then a tap picks the menu item under
+   the finger and a vertical drag scrolls, through the desktop builds' menu
+   pointer, and only A, B and the arrows stay on screen.
+
+   Every control can be moved, resized, hidden and given another icon in the
+   editor (host_touch_editor.m); the layout and settings are kept in
+   Documents/controls.json. */
 #import <UIKit/UIKit.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
@@ -19,6 +26,9 @@
 
 static SDL_Joystick *touch_joystick;
 static SDL_JoystickID touch_id, primary_hardware;
+static SDL_Window *touch_window;
+static __weak HaloControls *active_controls;
+static BOOL menu_mode;
 
 /* The game ignores less than 9000/32767 of deflection on each stick axis
    (GAMEPAD_STICK_DEAD_RANGE, source/input/input_xbox.c). Touch sticks start
@@ -32,6 +42,9 @@ static const CGFloat touch_dead_zone=.1;
 static const float look_points_to_mouse=1.6f;
 /* How much of the screen's width, from the left, starts the move stick. */
 static const CGFloat move_zone_fraction=.42;
+/* In menus: a touch that moves further than this is a scroll, not a tap, and
+   each step of this many points scrolls one item. */
+static const CGFloat menu_tap_slop=12, menu_scroll_step=34;
 
 static void button_state(int button, BOOL down) {
     if(touch_joystick) SDL_SetJoystickVirtualButton(touch_joystick,button,down);
@@ -56,6 +69,53 @@ static void push_look(CGFloat dx, CGFloat dy) {
     event.motion.timestamp=SDL_GetTicksNS();
     event.motion.xrel=(float)dx*scale;
     event.motion.yrel=(float)dy*scale*(settings.invertLook?-1:1);
+    SDL_PushEvent(&event);
+}
+
+/* ---------- the menus' pointer: positions in the drawable's pixels, which
+   is what the game's menu pointer expects on iOS (sdl_platform.c) */
+
+static CGPoint pointer_pixels(CGPoint point) {
+    int width=0,height=0,pixel_width=0,pixel_height=0;
+    if(touch_window) {
+        SDL_GetWindowSize(touch_window,&width,&height);
+        SDL_GetWindowSizeInPixels(touch_window,&pixel_width,&pixel_height);
+    }
+    CGFloat sx=width>0?(CGFloat)pixel_width/width:1,sy=height>0?(CGFloat)pixel_height/height:1;
+    return CGPointMake(point.x*sx,point.y*sy);
+}
+static void push_pointer_motion(CGPoint point) {
+    CGPoint pixels=pointer_pixels(point);
+    SDL_Event event;
+    SDL_zero(event);
+    event.type=SDL_EVENT_MOUSE_MOTION;
+    event.motion.timestamp=SDL_GetTicksNS();
+    event.motion.x=(float)pixels.x;
+    event.motion.y=(float)pixels.y;
+    SDL_PushEvent(&event);
+}
+static void push_pointer_click(CGPoint point, Uint8 button) {
+    CGPoint pixels=pointer_pixels(point);
+    for(int down=1;down>=0;down--) {
+        SDL_Event event;
+        SDL_zero(event);
+        event.type=down?SDL_EVENT_MOUSE_BUTTON_DOWN:SDL_EVENT_MOUSE_BUTTON_UP;
+        event.button.timestamp=SDL_GetTicksNS();
+        event.button.button=button;
+        event.button.down=down!=0;
+        event.button.clicks=1;
+        event.button.x=(float)pixels.x;
+        event.button.y=(float)pixels.y;
+        SDL_PushEvent(&event);
+    }
+}
+static void push_pointer_wheel(int steps) {
+    SDL_Event event;
+    SDL_zero(event);
+    event.type=SDL_EVENT_MOUSE_WHEEL;
+    event.wheel.timestamp=SDL_GetTicksNS();
+    event.wheel.y=(float)steps;
+    event.wheel.direction=SDL_MOUSEWHEEL_NORMAL;
     SDL_PushEvent(&event);
 }
 
@@ -86,8 +146,11 @@ void host_ios_touch_initialize(void) {
     if(!touch_joystick)host_fatal("Could not initialize touch controls: %s",SDL_GetError());
     axis_state(SDL_GAMEPAD_AXIS_LEFT_TRIGGER,-1);
     axis_state(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER,-1);
-    /* SDL's view controller reads this when the game creates its window. */
-    host_ios_apply_exit_gesture();
+    /* The home indicator fades out and one swipe up from the bottom edge
+       leaves, as in other apps. SDL's default for a fullscreen window defers
+       the gesture so that the first swipe only reveals the indicator. SDL's
+       view controller reads this when the game creates its window. */
+    SDL_SetHint(SDL_HINT_IOS_HIDE_HOME_INDICATOR,"1");
 }
 int host_ios_gamepads(uint32_t *out,int capacity) {
     int count=0,used=0;SDL_JoystickID *ids=SDL_GetGamepads(&count);
@@ -123,57 +186,73 @@ void host_ios_touch_reset(void) {
     for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)button_state(i,NO);
     for(int i=0;i<SDL_GAMEPAD_AXIS_COUNT;i++)axis_state(i,i>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER?-1:0);
 }
-void host_ios_apply_exit_gesture(void) {
-    /* 1: the home indicator fades out and one swipe up leaves, as in other
-       apps. 2 (SDL's default for a fullscreen window) makes the first swipe
-       only reveal the indicator. */
-    SDL_SetHint(SDL_HINT_IOS_HIDE_HOME_INDICATOR,HaloTouchSettings.shared.protectExit?"2":"1");
-}
 
-/* ---------- the controls and their defaults */
+/* ---------- the controls and their defaults
+
+   The default layout puts the actions in a column down the right edge with
+   FIRE under the right thumb, A and crouch along the bottom, the pause and
+   grenade-switch buttons beside the top-right corner, and a small move stick
+   on the left; the menu arrows only show in menus. */
 
 const HaloControlSpec halo_control_specs[HaloControlCount]={
-    {"move","Move stick","MOVE",NULL,"Move",HaloControlKindStick,SDL_GAMEPAD_AXIS_LEFTX,150,HaloAnchorBottomLeft,100,100,NO,NO,""},
-    {"look","Look stick","LOOK",NULL,"Look",HaloControlKindStick,SDL_GAMEPAD_AXIS_RIGHTX,140,HaloAnchorBottomRight,240,96,YES,NO,""},
-    {"fire","Fire","FIRE",NULL,"Fire",HaloControlKindTrigger,SDL_GAMEPAD_AXIS_RIGHT_TRIGGER,78,HaloAnchorBottomRight,62,210,NO,YES,
-        "target,scope,flame.fill,bolt.fill,smallcircle.filled.circle"},
-    {"grenade","Grenade","GRENADE",NULL,"Throw grenade",HaloControlKindTrigger,SDL_GAMEPAD_AXIS_LEFT_TRIGGER,60,HaloAnchorBottomLeft,50,212,NO,NO,
-        "burst.fill,circle.hexagongrid.fill,sparkle,flame.fill"},
-    {"jump","Jump / Select","A","A","A, jump or select",HaloControlKindButton,SDL_GAMEPAD_BUTTON_SOUTH,64,HaloAnchorBottomRight,46,48,NO,NO,
-        "arrow.up.to.line,arrow.up,chevron.up,hare.fill"},
-    {"melee","Melee / Back","B","B","B, melee or back",HaloControlKindButton,SDL_GAMEPAD_BUTTON_EAST,54,HaloAnchorBottomRight,116,104,NO,NO,
-        "hand.raised.fill,bolt.fill,burst,xmark"},
-    {"reload","Reload / Use","X","X","X, reload or use",HaloControlKindButton,SDL_GAMEPAD_BUTTON_WEST,54,HaloAnchorBottomRight,44,124,NO,NO,
-        "arrow.triangle.2.circlepath,arrow.clockwise,hand.tap.fill"},
-    {"weapon","Switch weapon","Y","Y","Y, switch weapon",HaloControlKindButton,SDL_GAMEPAD_BUTTON_NORTH,52,HaloAnchorBottomRight,46,286,NO,NO,
-        "arrow.left.arrow.right,arrow.2.squarepath,rectangle.2.swap"},
-    {"crouch","Crouch","CROUCH",NULL,"Crouch",HaloControlKindButton,SDL_GAMEPAD_BUTTON_LEFT_STICK,52,HaloAnchorBottomRight,124,36,NO,NO,
-        "arrow.down.to.line,chevron.down,arrow.down"},
-    {"zoom","Zoom","ZOOM",NULL,"Zoom",HaloControlKindButton,SDL_GAMEPAD_BUTTON_RIGHT_STICK,52,HaloAnchorBottomRight,142,180,NO,NO,
-        "plus.magnifyingglass,scope,binoculars.fill,eye.fill"},
-    {"flashlight","Flashlight","LIGHT",NULL,"Flashlight",HaloControlKindButton,SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,44,HaloAnchorBottomRight,134,264,NO,NO,
-        "flashlight.on.fill,lightbulb.fill,sun.max.fill"},
-    {"swapgrenade","Switch grenade","SWAP G",NULL,"Switch grenade",HaloControlKindButton,SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,44,HaloAnchorBottomLeft,122,222,NO,NO,
-        "arrow.2.squarepath,arrow.triangle.swap,repeat"},
-    {"pause","Pause / Start","PAUSE",NULL,"Pause or start",HaloControlKindButton,SDL_GAMEPAD_BUTTON_START,40,HaloAnchorTopCenter,0,20,NO,NO,
-        "pause.fill,line.3.horizontal,list.bullet"},
-    {"back","Back / Scores","BACK",NULL,"Back or scoreboard",HaloControlKindButton,SDL_GAMEPAD_BUTTON_BACK,40,HaloAnchorTopCenter,-56,20,YES,NO,
-        "list.number,chevron.backward,person.3.fill"},
-    {"up","Menu up","↑",NULL,"Menu up",HaloControlKindButton,SDL_GAMEPAD_BUTTON_DPAD_UP,32,HaloAnchorTopLeft,52,18,NO,NO,
-        "chevron.up,arrowtriangle.up.fill,arrow.up"},
-    {"down","Menu down","↓",NULL,"Menu down",HaloControlKindButton,SDL_GAMEPAD_BUTTON_DPAD_DOWN,32,HaloAnchorTopLeft,52,86,NO,NO,
-        "chevron.down,arrowtriangle.down.fill,arrow.down"},
-    {"left","Menu left","←",NULL,"Menu left",HaloControlKindButton,SDL_GAMEPAD_BUTTON_DPAD_LEFT,32,HaloAnchorTopLeft,18,52,NO,NO,
-        "chevron.left,arrowtriangle.left.fill,arrow.left"},
-    {"right","Menu right","→",NULL,"Menu right",HaloControlKindButton,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,32,HaloAnchorTopLeft,86,52,NO,NO,
-        "chevron.right,arrowtriangle.right.fill,arrow.right"},
+    {"move","Move stick","MOVE",NULL,"Move",HaloControlKindStick,SDL_GAMEPAD_AXIS_LEFTX,90,HaloAnchorBottomLeft,99,141,NO,NO,NO,"",""},
+    {"look","Look stick","LOOK",NULL,"Look",HaloControlKindStick,SDL_GAMEPAD_AXIS_RIGHTX,140,HaloAnchorBottomRight,310,100,YES,NO,NO,"",""},
+    {"fire","Fire","FIRE",NULL,"Fire",HaloControlKindTrigger,SDL_GAMEPAD_AXIS_RIGHT_TRIGGER,78,HaloAnchorBottomRight,82,107,NO,NO,YES,
+        "target,scope,flame.fill,bolt.fill,smallcircle.filled.circle","reticle,bracket"},
+    {"grenade","Grenade","GRENADE",NULL,"Throw grenade",HaloControlKindTrigger,SDL_GAMEPAD_AXIS_LEFT_TRIGGER,60,HaloAnchorBottomRight,94,262,NO,NO,NO,
+        "burst.fill,circle.hexagongrid.fill,sparkle,flame.fill","frag,plasma"},
+    {"jump","Jump / Select","A","A","A, jump or select",HaloControlKindButton,SDL_GAMEPAD_BUTTON_SOUTH,64,HaloAnchorBottomRight,34,33,NO,YES,NO,
+        "arrow.up.to.line,arrow.up,chevron.up,hare.fill","jump"},
+    {"melee","Melee / Back","B","B","B, melee or back",HaloControlKindButton,SDL_GAMEPAD_BUTTON_EAST,54,HaloAnchorBottomRight,198,56,NO,YES,NO,
+        "hand.raised.fill,bolt.fill,burst,xmark","impact"},
+    {"reload","Reload / Use","X","X","X, reload or use",HaloControlKindButton,SDL_GAMEPAD_BUTTON_WEST,54,HaloAnchorBottomRight,30,181,NO,NO,NO,
+        "arrow.triangle.2.circlepath,arrow.clockwise,hand.tap.fill","magazine"},
+    {"weapon","Switch weapon","Y","Y","Y, switch weapon",HaloControlKindButton,SDL_GAMEPAD_BUTTON_NORTH,52,HaloAnchorBottomRight,30,243,NO,NO,NO,
+        "arrow.left.arrow.right,arrow.2.squarepath,rectangle.2.swap","swap"},
+    {"crouch","Crouch","CROUCH",NULL,"Crouch",HaloControlKindButton,SDL_GAMEPAD_BUTTON_LEFT_STICK,52,HaloAnchorBottomRight,145,27,NO,NO,NO,
+        "arrow.down.to.line,chevron.down,arrow.down","crouch"},
+    {"zoom","Zoom","ZOOM",NULL,"Zoom",HaloControlKindButton,SDL_GAMEPAD_BUTTON_RIGHT_STICK,52,HaloAnchorBottomRight,94,199,NO,NO,NO,
+        "scope,plus.magnifyingglass,binoculars.fill,eye.fill","scope"},
+    /* The game reads the Duke's white button as the flashlight and black as
+       the grenade switch; SDL's left and right shoulders stand for them
+       (port/linux/src/xinput_sdl.c). */
+    {"flashlight","Flashlight","LIGHT",NULL,"Flashlight",HaloControlKindButton,SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,44,HaloAnchorBottomRight,24,303,NO,NO,NO,
+        "flashlight.on.fill,lightbulb.fill,sun.max.fill","flashlight"},
+    {"swapgrenade","Switch grenade","SWAP G",NULL,"Switch grenade",HaloControlKindButton,SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,44,HaloAnchorTopRight,147,42,NO,NO,NO,
+        "arrow.2.squarepath,arrow.triangle.swap,repeat","grenades"},
+    {"pause","Pause / Start","PAUSE",NULL,"Pause or start",HaloControlKindButton,SDL_GAMEPAD_BUTTON_START,40,HaloAnchorTopRight,104,20,NO,NO,NO,
+        "pause.fill,line.3.horizontal,list.bullet","pause,start"},
+    {"back","Back / Scores","BACK",NULL,"Back or scoreboard",HaloControlKindButton,SDL_GAMEPAD_BUTTON_BACK,40,HaloAnchorTopCenter,0,20,YES,NO,NO,
+        "list.number,chevron.backward,person.3.fill","scores"},
+    {"up","Menu up","↑",NULL,"Menu up",HaloControlKindButton,SDL_GAMEPAD_BUTTON_DPAD_UP,32,HaloAnchorTopLeft,52,18,YES,YES,NO,
+        "chevron.up,arrowtriangle.up.fill,arrow.up","arrow-up"},
+    {"down","Menu down","↓",NULL,"Menu down",HaloControlKindButton,SDL_GAMEPAD_BUTTON_DPAD_DOWN,32,HaloAnchorTopLeft,52,86,YES,YES,NO,
+        "chevron.down,arrowtriangle.down.fill,arrow.down","arrow-down"},
+    {"left","Menu left","←",NULL,"Menu left",HaloControlKindButton,SDL_GAMEPAD_BUTTON_DPAD_LEFT,32,HaloAnchorTopLeft,18,52,YES,YES,NO,
+        "chevron.left,arrowtriangle.left.fill,arrow.left","arrow-left"},
+    {"right","Menu right","→",NULL,"Menu right",HaloControlKindButton,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,32,HaloAnchorTopLeft,86,52,YES,YES,NO,
+        "chevron.right,arrowtriangle.right.fill,arrow.right","arrow-right"},
 };
 
-NSArray<NSString *> *halo_control_icons(int index) {
-    NSString *list=@(halo_control_specs[index].icons);
-    if(!list.length) return @[];
-    return [list componentsSeparatedByString:@","];
+static NSArray<NSString *> *split_list(const char *list) {
+    NSString *text=@(list);
+    if(!text.length) return @[];
+    return [text componentsSeparatedByString:@","];
 }
+NSArray<NSString *> *halo_control_icons(int index) {return split_list(halo_control_specs[index].icons);}
+NSArray<NSString *> *halo_control_halo_icons(int index) {return split_list(halo_control_specs[index].haloIcons);}
+
+/* the icon a style starts a control with */
+static NSString *default_icon(int index, BOOL halo) {
+    NSArray<NSString *> *icons=halo?halo_control_halo_icons(index):halo_control_icons(index);
+    if(icons.count) return [(halo?@"halo:":@"sf:") stringByAppendingString:icons.firstObject];
+    return @"text";
+}
+
+/* ---------- colours */
+
+static UIColor *hud_color(CGFloat alpha) {return [UIColor colorWithRed:.37 green:.78 blue:1 alpha:alpha];}
+static UIColor *hud_fill(CGFloat alpha) {return [UIColor colorWithRed:.02 green:.08 blue:.14 alpha:alpha];}
 
 /* ---------- settings, kept in Documents/controls.json */
 
@@ -204,7 +283,7 @@ static BOOL json_bool(id value,BOOL fallback) {
 - (instancetype)init {
     if(!(self=[super init])) return nil;
     self.lookSensitivity=1;self.opacity=.8;self.invertLook=NO;self.floatingStick=YES;
-    self.haptics=YES;self.showNames=NO;self.protectExit=NO;
+    self.haptics=YES;self.showNames=NO;self.haloStyle=NO;
     [self resetLayout];
     [self load];
     return self;
@@ -224,9 +303,15 @@ static BOOL json_bool(id value,BOOL fallback) {
         const HaloControlSpec *spec=&halo_control_specs[i];
         HaloControlState *state=[HaloControlState new];
         state.scale=1;state.hidden=spec->hidden;state.aim=spec->aim;
-        NSArray<NSString *> *icons=halo_control_icons(i);
-        state.icon=icons.count?[@"sf:" stringByAppendingString:icons.firstObject]:@"text";
+        state.icon=default_icon(i,self.haloStyle);
         [self.mutableControls addObject:state];
+    }
+}
+- (void)applyStyle:(BOOL)halo {
+    self.haloStyle=halo;
+    for(int i=0;i<HaloControlCount;i++) {
+        HaloControlState *state=self.mutableControls[i];
+        if(![state.icon isEqualToString:@"custom"]) state.icon=default_icon(i,halo);
     }
 }
 - (void)load {
@@ -245,7 +330,7 @@ static BOOL json_bool(id value,BOOL fallback) {
         self.floatingStick=json_bool(settings[@"floating_stick"],self.floatingStick);
         self.haptics=json_bool(settings[@"haptics"],self.haptics);
         self.showNames=json_bool(settings[@"show_names"],self.showNames);
-        self.protectExit=json_bool(settings[@"swipe_twice_to_exit"],self.protectExit);
+        self.haloStyle=[settings[@"style"] isEqual:@"halo"];
     }
     NSDictionary *controls=root[@"controls"];
     if(![controls isKindOfClass:NSDictionary.class]) return;
@@ -260,7 +345,8 @@ static BOOL json_bool(id value,BOOL fallback) {
         state.hidden=json_bool(entry[@"hidden"],state.hidden);
         state.aim=json_bool(entry[@"aim_while_held"],state.aim);
         NSString *icon=entry[@"icon"];
-        if([icon isKindOfClass:NSString.class] && ([icon hasPrefix:@"sf:"] || [icon isEqualToString:@"text"] || [icon isEqualToString:@"custom"]))
+        if([icon isKindOfClass:NSString.class] && ([icon hasPrefix:@"sf:"] || [icon hasPrefix:@"halo:"] ||
+            [icon isEqualToString:@"text"] || [icon isEqualToString:@"custom"]))
             state.icon=icon;
     }
 }
@@ -279,7 +365,7 @@ static BOOL json_bool(id value,BOOL fallback) {
             @"look_sensitivity":@(self.lookSensitivity),@"opacity":@(self.opacity),
             @"invert_look":@(self.invertLook),@"floating_stick":@(self.floatingStick),
             @"haptics":@(self.haptics),@"show_names":@(self.showNames),
-            @"swipe_twice_to_exit":@(self.protectExit),
+            @"style":self.haloStyle?@"halo":@"standard",
         },
         @"controls":controls,
     };
@@ -288,14 +374,17 @@ static BOOL json_bool(id value,BOOL fallback) {
     if(!data || ![data writeToFile:self.path options:NSDataWritingAtomic error:&error])
         host_logf(HOST_LOG_WARN,"could not save controls.json: %s",error.localizedDescription.UTF8String);
 }
-- (UIImage *)imageForControl:(int)index pointSize:(CGFloat)pointSize {
-    NSString *icon=self.mutableControls[index].icon;
+- (UIImage *)imageForIcon:(NSString *)icon control:(int)index diameter:(CGFloat)diameter {
     if([icon isEqualToString:@"custom"]) return [UIImage imageWithContentsOfFile:[self customIconPath:index]];
+    if([icon hasPrefix:@"halo:"]) return halo_icon_image([icon substringFromIndex:5],diameter*.56);
     if([icon hasPrefix:@"sf:"]) {
-        UIImageSymbolConfiguration *configuration=[UIImageSymbolConfiguration configurationWithPointSize:pointSize weight:UIImageSymbolWeightSemibold];
+        UIImageSymbolConfiguration *configuration=[UIImageSymbolConfiguration configurationWithPointSize:diameter*.36 weight:UIImageSymbolWeightSemibold];
         return [UIImage systemImageNamed:[icon substringFromIndex:3] withConfiguration:configuration];
     }
     return nil;
+}
+- (UIImage *)imageForControl:(int)index diameter:(CGFloat)diameter {
+    return [self imageForIcon:self.mutableControls[index].icon control:index diameter:diameter];
 }
 @end
 
@@ -333,11 +422,9 @@ static UIColor *badge_color(const char *badge) {
     self.layer.borderWidth=1.25;
     self.iconView=[UIImageView new];
     self.iconView.contentMode=UIViewContentModeScaleAspectFit;
-    self.iconView.tintColor=UIColor.whiteColor;
     self.iconView.userInteractionEnabled=NO;
     [self addSubview:self.iconView];
     self.label=[UILabel new];
-    self.label.textColor=UIColor.whiteColor;
     self.label.textAlignment=NSTextAlignmentCenter;
     self.label.adjustsFontSizeToFitWidth=YES;
     self.label.minimumScaleFactor=.5;
@@ -350,7 +437,6 @@ static UIColor *badge_color(const char *badge) {
     [self addSubview:self.badgeLabel];
     self.nameLabel=[UILabel new];
     self.nameLabel.textAlignment=NSTextAlignmentCenter;
-    self.nameLabel.textColor=[UIColor colorWithWhite:1 alpha:.85];
     self.nameLabel.font=[UIFont systemFontOfSize:10 weight:UIFontWeightSemibold];
     self.nameLabel.text=@(spec->text).uppercaseString;
     self.nameLabel.layer.shadowColor=UIColor.blackColor.CGColor;
@@ -361,23 +447,29 @@ static UIColor *badge_color(const char *badge) {
     [self applySettings];
     return self;
 }
+- (BOOL)showsCustomImage {
+    return [HaloTouchSettings.shared.controls[self.index].icon isEqualToString:@"custom"];
+}
 - (void)applySettings {
     HaloTouchSettings *settings=HaloTouchSettings.shared;
-    CGFloat size=self.bounds.size.width;
-    UIImage *image=[settings imageForControl:self.index pointSize:size*.36];
-    BOOL custom=[settings.controls[self.index].icon isEqualToString:@"custom"];
+    UIImage *image=[settings imageForControl:self.index diameter:self.bounds.size.width];
+    BOOL custom=self.showsCustomImage;
     self.iconView.image=custom?[image imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal]:image;
     self.iconView.hidden=image==nil;
     self.label.hidden=image!=nil;
     self.badgeLabel.hidden=image==nil || !self.badgeLabel.text.length;
     self.nameLabel.hidden=!settings.showNames;
+    UIColor *foreground=settings.haloStyle?[UIColor colorWithRed:.8 green:.93 blue:1 alpha:1]:UIColor.whiteColor;
+    self.iconView.tintColor=foreground;
+    self.label.textColor=foreground;
+    self.nameLabel.textColor=settings.haloStyle?hud_color(.95):[UIColor colorWithWhite:1 alpha:.85];
     [self setNeedsLayout];
 }
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGFloat size=self.bounds.size.width;
     self.layer.cornerRadius=size/2;
-    BOOL custom=[HaloTouchSettings.shared.controls[self.index].icon isEqualToString:@"custom"];
+    BOOL custom=self.showsCustomImage;
     CGFloat inset=size*(custom?.17:.22);
     CGRect icon=CGRectInset(self.bounds,inset,inset);
     if(self.badgeLabel.text.length && !custom) icon=CGRectOffset(icon,0,-size*.05);
@@ -390,8 +482,16 @@ static UIColor *badge_color(const char *badge) {
     [self updateAppearance];
 }
 - (void)updateAppearance {
-    self.backgroundColor=self.pressed?[UIColor colorWithWhite:1 alpha:.32]:[UIColor colorWithWhite:0 alpha:.3];
-    self.layer.borderColor=[UIColor colorWithWhite:1 alpha:self.pressed?.95:.5].CGColor;
+    BOOL halo=HaloTouchSettings.shared.haloStyle;
+    if(halo) {
+        self.backgroundColor=self.pressed?hud_color(.38):hud_fill(.45);
+        self.layer.borderColor=hud_color(self.pressed?1:.8).CGColor;
+        self.layer.borderWidth=self.pressed?2:1.5;
+    } else {
+        self.backgroundColor=self.pressed?[UIColor colorWithWhite:1 alpha:.32]:[UIColor colorWithWhite:0 alpha:.3];
+        self.layer.borderColor=[UIColor colorWithWhite:1 alpha:self.pressed?.95:.5].CGColor;
+        self.layer.borderWidth=1.25;
+    }
     self.transform=self.pressed?CGAffineTransformMakeScale(.9,.9):CGAffineTransformIdentity;
 }
 - (void)sendDown:(BOOL)down {
@@ -415,7 +515,7 @@ static UIColor *badge_color(const char *badge) {
 - (BOOL)continueTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {
     [super continueTrackingWithTouch:touch withEvent:event];
     CGPoint point=[touch locationInView:nil];
-    if(HaloTouchSettings.shared.controls[self.index].aim) push_look(point.x-self.lastAim.x,point.y-self.lastAim.y);
+    if(!menu_mode && HaloTouchSettings.shared.controls[self.index].aim) push_look(point.x-self.lastAim.x,point.y-self.lastAim.y);
     self.lastAim=point;
     return YES;
 }
@@ -454,20 +554,21 @@ static UIColor *badge_color(const char *badge) {
 - (CGFloat)travel {return self.bounds.size.width*.34;}
 - (void)drawRect:(CGRect)rect {
     (void)rect;
+    BOOL halo=HaloTouchSettings.shared.haloStyle;
     CGFloat size=self.bounds.size.width;
     UIBezierPath *base=[UIBezierPath bezierPathWithOvalInRect:CGRectInset(self.bounds,1.5,1.5)];
-    [[UIColor colorWithWhite:0 alpha:self.active?.26:.16] setFill];
+    [(halo?hud_fill(self.active?.4:.28):[UIColor colorWithWhite:0 alpha:self.active?.26:.16]) setFill];
     [base fill];
-    [[UIColor colorWithWhite:1 alpha:self.active?.7:.4] setStroke];
+    [(halo?hud_color(self.active?.95:.6):[UIColor colorWithWhite:1 alpha:self.active?.7:.4]) setStroke];
     base.lineWidth=1.5;
     [base stroke];
     CGFloat knob=size*.4,travel=self.travel;
     CGRect knobRect=CGRectMake(size/2+self.knob.x*travel-knob/2,size/2+self.knob.y*travel-knob/2,knob,knob);
-    [[UIColor colorWithWhite:1 alpha:self.active?.5:.28] setFill];
+    [(halo?hud_color(self.active?.5:.3):[UIColor colorWithWhite:1 alpha:self.active?.5:.28]) setFill];
     [[UIBezierPath bezierPathWithOvalInRect:knobRect] fill];
     if(self.caption.length && !self.active) {
         NSDictionary *attributes=@{NSFontAttributeName:[UIFont systemFontOfSize:10 weight:UIFontWeightSemibold],
-            NSForegroundColorAttributeName:[UIColor colorWithWhite:1 alpha:.75]};
+            NSForegroundColorAttributeName:halo?hud_color(.85):[UIColor colorWithWhite:1 alpha:.75]};
         CGSize text=[self.caption sizeWithAttributes:attributes];
         [self.caption drawAtPoint:CGPointMake((size-text.width)/2,size-text.height-size*.08) withAttributes:attributes];
     }
@@ -484,11 +585,17 @@ static UIColor *badge_color(const char *badge) {
 @property(nonatomic, strong) UIButton *hideButton;
 @property(nonatomic, strong) UIButton *editButton;
 @property(nonatomic) BOOL controlsHidden;
+@property(nonatomic) BOOL menuMode;
 @property(nonatomic, strong) UITouch *moveTouch;
 @property(nonatomic, strong) UITouch *lookTouch;
 @property(nonatomic, strong) UITouch *lookStickTouch;
+@property(nonatomic, strong) UITouch *menuTouch;
 @property(nonatomic) CGPoint moveBase;
 @property(nonatomic) CGPoint lookLast;
+@property(nonatomic) CGPoint menuStart;
+@property(nonatomic) CGPoint menuLast;
+@property(nonatomic) BOOL menuScrolling;
+@property(nonatomic) CGFloat menuScroll;
 @end
 
 @implementation HaloControls
@@ -528,6 +635,7 @@ static UIColor *badge_color(const char *badge) {
     self.hideButton=[self chromeButton:@"eye.slash" label:@"Hide controls" action:@selector(toggleControls)];
     self.editButton=[self chromeButton:@"slider.horizontal.3" label:@"Customize controls" action:@selector(beginEditing)];
     [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(reset) name:UIApplicationWillResignActiveNotification object:nil];
+    self.menuMode=menu_mode;
     [self applySettings];
     return self;
 }
@@ -555,6 +663,7 @@ static UIColor *badge_color(const char *badge) {
     case HaloAnchorBottomRight: return CGPointMake(CGRectGetMaxX(r)-spec->dx*s,CGRectGetMaxY(r)-spec->dy*sy);
     case HaloAnchorTopLeft: return CGPointMake(CGRectGetMinX(r)+spec->dx*s,CGRectGetMinY(r)+spec->dy*s);
     case HaloAnchorTopCenter: return CGPointMake(CGRectGetMidX(r)+spec->dx*s,CGRectGetMinY(r)+spec->dy*s);
+    case HaloAnchorTopRight: return CGPointMake(CGRectGetMaxX(r)-spec->dx*s,CGRectGetMinY(r)+spec->dy*s);
     }
     return CGPointMake(CGRectGetMidX(r),CGRectGetMidY(r));
 }
@@ -593,8 +702,10 @@ static UIColor *badge_color(const char *badge) {
     [self updateVisibility];
     [self setNeedsLayout];
     [self layoutIfNeeded];
-    for(UIView *view in self.controlViews)
+    for(UIView *view in self.controlViews) {
         if([view isKindOfClass:HaloButton.class]) [(HaloButton *)view applySettings];
+        [view setNeedsDisplay];
+    }
 }
 - (void)updateVisibility {
     HaloTouchSettings *settings=HaloTouchSettings.shared;
@@ -602,7 +713,13 @@ static UIColor *badge_color(const char *badge) {
     for(int i=0;i<HaloControlCount;i++) {
         UIView *view=self.controlViews[i];
         BOOL hidden=settings.controls[i].hidden;
-        view.hidden=!editing && (self.controlsHidden || hidden);
+        BOOL shown;
+        if(editing) shown=YES;
+        else if(self.controlsHidden) shown=NO;
+        /* menus get A, B and the arrows wherever they are placed */
+        else if(self.menuMode) shown=halo_control_specs[i].menu;
+        else shown=!hidden;
+        view.hidden=!shown;
         CGFloat alpha=settings.opacity;
         if(editing && hidden) alpha=.3;
         else if(i==HaloControlMove && settings.floatingStick && !self.moveTouch && !editing) alpha*=.6;
@@ -615,7 +732,7 @@ static UIColor *badge_color(const char *badge) {
 }
 - (void)reset {
     host_ios_touch_reset();
-    self.moveTouch=self.lookTouch=self.lookStickTouch=nil;
+    self.moveTouch=self.lookTouch=self.lookStickTouch=self.menuTouch=nil;
     self.moveStick.knob=self.lookStick.knob=CGPointZero;
     self.moveStick.active=self.lookStick.active=NO;
     for(UIView *view in self.controlViews)
@@ -623,6 +740,11 @@ static UIColor *badge_color(const char *badge) {
     host_ios_haptics_stop();
     [self updateVisibility];
     [self setNeedsLayout];
+}
+- (void)setMenuMode:(BOOL)menuMode {
+    if(_menuMode==menuMode) return;
+    _menuMode=menuMode;
+    [self reset];
 }
 - (void)toggleControls {
     [self reset];
@@ -644,15 +766,15 @@ static UIColor *badge_color(const char *badge) {
     [HaloTouchSettings.shared save];
     [(UIView *)self.editor removeFromSuperview];
     self.editor=nil;
-    host_ios_apply_exit_gesture();
     [self applySettings];
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
     (void)event;
-    /* Every touch belongs to the controls while they are showing: the left
-       of the screen moves and the rest aims. Hidden controls let touches
-       through except on the two buttons that bring them back. */
-    if(self.editor || !self.controlsHidden) return YES;
+    /* Every touch belongs to the controls while they are showing (the left
+       of the screen moves and the rest aims) and in menus (taps pick items).
+       Hidden controls let touches through during play, except on the two
+       buttons that bring them back. */
+    if(self.editor || !self.controlsHidden || self.menuMode) return YES;
     for(UIView *view in @[self.hideButton,self.editButton])
         if(!view.hidden && CGRectContainsPoint(CGRectInset(view.frame,-6,-6),point)) return YES;
     return NO;
@@ -731,9 +853,47 @@ static UIColor *badge_color(const char *badge) {
     axis_state(SDL_GAMEPAD_AXIS_RIGHTX,0);
     axis_state(SDL_GAMEPAD_AXIS_RIGHTY,0);
 }
+
+/* ---------- menus: tap to pick, drag to scroll */
+
+- (void)menuTouchBegan:(UITouch *)touch at:(CGPoint)point {
+    if(self.menuTouch) return;
+    self.menuTouch=touch;
+    self.menuStart=self.menuLast=point;
+    self.menuScrolling=NO;
+    self.menuScroll=0;
+    /* the item under the finger takes the focus straight away */
+    push_pointer_motion(point);
+}
+- (void)menuTouchMoved:(CGPoint)point {
+    if(!self.menuScrolling && hypot(point.x-self.menuStart.x,point.y-self.menuStart.y)>menu_tap_slop)
+        self.menuScrolling=YES;
+    if(self.menuScrolling) {
+        /* the list follows the finger: dragging down shows earlier items,
+           which is the wheel turned away from the player */
+        self.menuScroll+=point.y-self.menuLast.y;
+        while(self.menuScroll>=menu_scroll_step) {push_pointer_wheel(1);self.menuScroll-=menu_scroll_step;}
+        while(self.menuScroll<=-menu_scroll_step) {push_pointer_wheel(-1);self.menuScroll+=menu_scroll_step;}
+    }
+    self.menuLast=point;
+}
+- (void)menuTouchEnded:(CGPoint)point cancelled:(BOOL)cancelled {
+    if(!cancelled && !self.menuScrolling) {
+        push_pointer_motion(point);
+        push_pointer_click(point,SDL_BUTTON_LEFT);
+        host_ios_haptics_tap();
+    }
+    self.menuTouch=nil;
+}
+
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     (void)event;
-    if(self.controlsHidden || self.editor) return;
+    if(self.editor) return;
+    if(self.menuMode) {
+        for(UITouch *touch in touches) [self menuTouchBegan:touch at:[touch locationInView:self]];
+        return;
+    }
+    if(self.controlsHidden) return;
     HaloTouchSettings *settings=HaloTouchSettings.shared;
     CGRect r=[self layoutRect];
     BOOL moveShown=!settings.controls[HaloControlMove].hidden;
@@ -761,7 +921,8 @@ static UIColor *badge_color(const char *badge) {
     (void)event;
     for(UITouch *touch in touches) {
         CGPoint point=[touch locationInView:self];
-        if(touch==self.moveTouch) [self updateMove:point];
+        if(touch==self.menuTouch) [self menuTouchMoved:point];
+        else if(touch==self.moveTouch) [self updateMove:point];
         else if(touch==self.lookStickTouch) [self updateLookStick:point];
         else if(touch==self.lookTouch) {
             push_look(point.x-self.lookLast.x,point.y-self.lookLast.y);
@@ -769,21 +930,37 @@ static UIColor *badge_color(const char *badge) {
         }
     }
 }
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    (void)event;
+- (void)finishTouches:(NSSet<UITouch *> *)touches cancelled:(BOOL)cancelled {
     for(UITouch *touch in touches) {
+        if(touch==self.menuTouch) [self menuTouchEnded:[touch locationInView:self] cancelled:cancelled];
         if(touch==self.moveTouch) [self endMove];
         if(touch==self.lookStickTouch) [self endLookStick];
         if(touch==self.lookTouch) self.lookTouch=nil;
     }
 }
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    (void)event;
+    [self finishTouches:touches cancelled:NO];
+}
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    [self touchesEnded:touches withEvent:event];
+    (void)event;
+    [self finishTouches:touches cancelled:YES];
 }
 @end
 
+/* The game frees its mouse while a menu is up and captures it again for
+   aiming (host_sdl_set_relative_mouse). */
+void host_ios_touch_menu_mode(int menus) {
+    BOOL active=menus!=0;
+    if(menu_mode==active) return;
+    menu_mode=active;
+    host_logf(HOST_LOG_INFO,"touch controls: %s",active?"menus":"play");
+    active_controls.menuMode=active;
+}
+
 void host_ios_touch_attach(SDL_Window *window) {
     UIWindow *native=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
+    touch_window=window;
     /* Retire SDL's temporary launch window before entering the non-returning
        game loop. Its fade animation can otherwise keep accessibility/input
        attached to the launch controller on recent scene-based iOS versions. */
@@ -796,5 +973,6 @@ void host_ios_touch_attach(SDL_Window *window) {
     UIView *root=native.rootViewController.view;
     HaloControls *controls=[[HaloControls alloc]initWithFrame:root.bounds];
     [root addSubview:controls];
+    active_controls=controls;
     host_logf(HOST_LOG_INFO,"touch controls attached, %.0fx%.0f",root.bounds.size.width,root.bounds.size.height);
 }

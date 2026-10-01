@@ -1,5 +1,6 @@
 /* Touch controls shared between the in-game overlay (host_touch.m), its
-   layout editor (host_touch_editor.m) and haptics (host_haptics.m). */
+   layout editor (host_touch_editor.m), the Halo-style icons
+   (host_touch_icons.m) and haptics (host_haptics.m). */
 #pragma once
 #import <UIKit/UIKit.h>
 
@@ -14,6 +15,7 @@ typedef NS_ENUM(NSInteger, HaloAnchor) {
     HaloAnchorBottomRight,
     HaloAnchorTopLeft,
     HaloAnchorTopCenter,
+    HaloAnchorTopRight,
 };
 
 typedef struct {
@@ -27,9 +29,11 @@ typedef struct {
     CGFloat size;              /* diameter in points before scaling */
     HaloAnchor anchor;
     CGFloat dx, dy;            /* centre offset inward from the anchor, in points before scaling */
-    BOOL hidden;               /* hidden by default */
+    BOOL hidden;               /* hidden during play by default */
+    BOOL menu;                 /* shown while a menu is up, where taps also pick menu items */
     BOOL aim;                  /* dragging while held turns the view, by default */
     const char *icons;         /* comma-separated SF Symbols; the first is the default */
+    const char *haloIcons;     /* comma-separated Halo-style icons; the first is the Halo style's default */
 } HaloControlSpec;
 
 /* Indices into halo_control_specs, in table order. */
@@ -57,8 +61,13 @@ enum {
 
 extern const HaloControlSpec halo_control_specs[HaloControlCount];
 
-/* The SF Symbols offered for a control, in order; empty for the sticks. */
+/* The icons offered for a control, in order; empty for the sticks. */
 NSArray<NSString *> *halo_control_icons(int index);
+NSArray<NSString *> *halo_control_halo_icons(int index);
+
+/* A Halo-style icon (host_touch_icons.m) as a template image side points
+   square, or nil for an unknown name. */
+UIImage *halo_icon_image(NSString *name, CGFloat side);
 
 @interface HaloControlState : NSObject
 @property(nonatomic) BOOL placed;            /* moved by the player: x and y apply */
@@ -66,7 +75,7 @@ NSArray<NSString *> *halo_control_icons(int index);
 @property(nonatomic) CGFloat scale;          /* size multiplier */
 @property(nonatomic) BOOL hidden;
 @property(nonatomic) BOOL aim;
-@property(nonatomic, copy) NSString *icon;   /* "sf:<symbol>", "text" or "custom" */
+@property(nonatomic, copy) NSString *icon;   /* "sf:<symbol>", "halo:<icon>", "text" or "custom" */
 @end
 
 @interface HaloTouchSettings : NSObject
@@ -76,14 +85,19 @@ NSArray<NSString *> *halo_control_icons(int index);
 @property(nonatomic) BOOL floatingStick;
 @property(nonatomic) BOOL haptics;
 @property(nonatomic) BOOL showNames;
-@property(nonatomic) BOOL protectExit;       /* swipe twice to leave the app */
+@property(nonatomic) BOOL haloStyle;         /* HUD-blue buttons */
 @property(nonatomic, readonly) NSArray<HaloControlState *> *controls;
 + (instancetype)shared;
 - (void)save;
 - (void)resetLayout;
+/* Switches the look and gives every control that style's default icon,
+   except controls showing the player's own image. */
+- (void)applyStyle:(BOOL)halo;
 - (NSString *)customIconPath:(int)index;
-/* The control's icon, or nil when it shows text. */
-- (UIImage *)imageForControl:(int)index pointSize:(CGFloat)pointSize;
+/* The control's icon for a button of this diameter, or nil when it shows text. */
+- (UIImage *)imageForControl:(int)index diameter:(CGFloat)diameter;
+/* The same for any icon string. */
+- (UIImage *)imageForIcon:(NSString *)icon control:(int)index diameter:(CGFloat)diameter;
 @end
 
 @class HaloControlEditor;
@@ -93,7 +107,7 @@ NSArray<NSString *> *halo_control_icons(int index);
 - (CGRect)layoutRect;
 - (CGFloat)layoutScale;
 - (UIView *)viewForControl:(int)index;
-/* Re-read icons, sizes, visibility and opacity from the settings. */
+/* Re-read icons, sizes, visibility, style and opacity from the settings. */
 - (void)applySettings;
 - (void)finishEditing;
 @end
@@ -105,4 +119,3 @@ NSArray<NSString *> *halo_control_icons(int index);
 void host_ios_haptics_rumble(float intensity);
 void host_ios_haptics_tap(void);
 void host_ios_haptics_stop(void);
-void host_ios_apply_exit_gesture(void);

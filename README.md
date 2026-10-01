@@ -63,14 +63,18 @@ you delete the app.
   you shoot. Aiming slows down when you zoom.
 - **Put your thumb anywhere on the left side to move.** The stick appears
   under your thumb and follows it if you slide past the edge.
-- **A** jump / select, **B** melee / back, **X** reload / use, **Y** switch
-  weapons. The small colored letter on each button matches the menu prompts.
-- **Arrow buttons** (top left) for menus
-- **FIRE**, **GRENADE**, **CROUCH**, **ZOOM**, **LIGHT** (flashlight),
-  **SWAP G** (switch grenades), and **PAUSE** each get their own button
+- The action buttons run down the right edge: **grenade**, **Y** switch weapon,
+  **zoom**, **X** reload / use, a big **FIRE**, then **A** jump, **crouch** and
+  **B** melee along the bottom. **LIGHT** (flashlight), **SWAP G** (switch
+  grenades) and **PAUSE** sit near the top-right corner. The small colored
+  letters match the game's A, B, X and Y prompts.
 
-The phone vibrates with the game's rumble, and a connected controller rumbles
-too.
+### Menus
+
+Tap a menu item to pick it, and drag up or down to scroll lists, on the title
+screen, the pause menu and every other menu. While a menu is up, the gameplay
+buttons get out of the way and only **A**, **B** and the menu arrows stay on
+screen, in case you'd rather use them.
 
 ### Customizing the controls
 
@@ -78,8 +82,10 @@ Tap the sliders button in the top-right corner to edit the controls while you
 play:
 
 - Drag any button or stick to move it
-- Tap one to resize it, hide it, or pick a different icon. You can also use
-  text, or any image from Files as the icon.
+- Tap one to resize it, hide it, or pick a different icon. Each button offers
+  Halo-style icons, standard iOS icons, text, or any image from Files.
+- **Button style: Halo** gives every button HUD-blue colors and Halo-style
+  icons in one tap
 - Change look speed, invert look, opacity, vibration, and whether the move
   stick follows your thumb
 - Turn on the old right look stick if you'd rather aim with a stick
@@ -88,14 +94,12 @@ play:
 Your layout is saved in `controls.json` in the Halo: CE folder in Files, and
 any custom icons are saved in its `Controls` folder.
 
-Tap the eye button for a clean screen when you're using a controller, and tap
-it again to bring the controls back.
+The phone vibrates with the game's rumble, and a connected controller rumbles
+too. Tap the eye button for a clean screen when you're using a controller, and
+tap it again to bring the controls back.
 
-### Going home
-
-One swipe up from the bottom edge leaves the game, like other apps. If your
-thumb keeps triggering it by accident, turn on **Swipe up twice to leave the
-game** in the control editor.
+The game turns with your phone between both landscape orientations, and one
+swipe up from the bottom edge goes home, like other apps.
 
 ## Display settings
 
